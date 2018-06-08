@@ -20,8 +20,8 @@ import (
 )
 
 func TestSocketServer(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
 	storage.Initialize(&storage.Config{Type: storage.Memory})
+	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
 
 	go func() {
 		time.Sleep(time.Millisecond * 150)
@@ -64,8 +64,8 @@ func TestSocketServer(t *testing.T) {
 }
 
 func TestWebSocketServer(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
 	storage.Initialize(&storage.Config{Type: storage.Memory})
+	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
 
 	go func() {
 		time.Sleep(time.Millisecond * 150)
