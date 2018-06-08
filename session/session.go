@@ -91,8 +91,8 @@ func (s *Session) UpdateJID(sessionJID *xml.JID) {
 	s.sJID.Store(sessionJID)
 }
 
-// Open opens session sending the proper XMPP payload.
-func (s *Session) Open() error {
+// Open initializes a sending the proper XMPP payload.
+func (s *Session) Open(asClient bool, remoteDomain string) error {
 	if !atomic.CompareAndSwapUint32(&s.opened, 0, 1) {
 		return errors.New("session already opened")
 	}
@@ -117,6 +117,9 @@ func (s *Session) Open() error {
 	}
 	ops.SetAttribute("id", s.id)
 	ops.SetAttribute("from", s.jid().Domain())
+	if !asClient {
+		ops.SetAttribute("to", remoteDomain)
+	}
 	ops.SetAttribute("version", "1.0")
 	ops.ToXML(buf, includeClosing)
 

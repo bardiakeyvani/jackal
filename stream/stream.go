@@ -42,7 +42,7 @@ type C2S interface {
 type S2SOut interface {
 	Stream
 	Domain() string
-	StartSession()
+	Start()
 }
 
 type S2SDialerOptions struct {
@@ -50,7 +50,7 @@ type S2SDialerOptions struct {
 	KeepAlive time.Duration
 }
 
-type S2SDialer func(domain string, opts S2SDialerOptions) (S2SOut, error)
+type S2SDialer func(localDomain, remoteDomain string, opts *S2SDialerOptions) (S2SOut, error)
 
 // MockC2S represents a mocked c2s stream.
 type MockC2S struct {

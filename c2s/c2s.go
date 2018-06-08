@@ -340,7 +340,7 @@ func (s *Stream) handleConnecting(elem xml.XElement) {
 	s.ctx.SetString(elem.To(), domainCtxKey)
 
 	// open stream session
-	s.sess.Open()
+	s.sess.Open(true, "")
 
 	features := xml.NewElementName("stream:features")
 	features.SetAttribute("xmlns:stream", streamNamespace)
@@ -896,7 +896,7 @@ func (s *Stream) isComponentDomain(domain string) bool {
 
 func (s *Stream) disconnectWithStreamError(err *streamerror.Error) {
 	if s.getState() == connecting {
-		s.sess.Open()
+		s.sess.Open(true, "")
 	}
 	s.writeElement(err.Element())
 	s.disconnectClosingSession(true)
