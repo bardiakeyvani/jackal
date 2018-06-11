@@ -83,8 +83,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "jackal: %v\n", err)
 		return
 	}
-	if len(cfg.Servers) == 0 {
-		fmt.Fprint(os.Stderr, "jackal: couldn't find a server configuration\n")
+	if len(cfg.VirtualHosts) == 0 {
+		fmt.Fprint(os.Stderr, "jackal: at least one virtual host configuration is required\n")
 		return
 	}
 
@@ -109,10 +109,9 @@ func main() {
 	if cfg.Debug.Port > 0 {
 		go initDebugServer(cfg.Debug.Port)
 	}
-	testS2S()
 
 	// start serving c2s...
-	c2s.Initialize(cfg.Servers)
+	c2s.Initialize(cfg.VirtualHosts)
 
 	if debugSrv != nil {
 		debugSrv.Close()

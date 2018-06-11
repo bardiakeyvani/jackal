@@ -75,3 +75,10 @@ virtual_hosts:
       mod_ping:
         send: no
         send_interval: 60
+
+s2s:
+  disabled: false
+  transport:
+    bind_addr: 0.0.0.0
+    port: 5269
+    keep_alive: 120

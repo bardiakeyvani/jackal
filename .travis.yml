@@ -6,7 +6,6 @@ os:
 
 go:
   - 1.10.x
-  - 1.9.x
 
 env:
   - DEP_VERSION="0.4.1"

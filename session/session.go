@@ -6,7 +6,6 @@
 package session
 
 import (
-	"bytes"
 	stdxml "encoding/xml"
 	"fmt"
 	"io"
@@ -99,7 +98,7 @@ func (s *Session) Open(asClient bool, remoteDomain string) error {
 	var ops *xml.Element
 	var includeClosing bool
 
-	buf := &bytes.Buffer{}
+	buf := &strings.Builder{}
 	switch s.tr.Type() {
 	case transport.Socket:
 		ops = xml.NewElementName("stream:stream")

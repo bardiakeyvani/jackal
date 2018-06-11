@@ -34,7 +34,7 @@ type server struct {
 	ln         net.Listener
 	wsSrv      *http.Server
 	wsUpgrader *websocket.Upgrader
-	strCounter int32
+	stmCnt     int32
 	listening  uint32
 }
 
@@ -172,5 +172,5 @@ func (s *server) startStream(tr transport.Transport) {
 }
 
 func (s *server) nextID() string {
-	return fmt.Sprintf("%s:%d", s.cfg.ID, atomic.AddInt32(&s.strCounter, 1))
+	return fmt.Sprintf("%s:%d", s.cfg.ID, atomic.AddInt32(&s.stmCnt, 1))
 }
