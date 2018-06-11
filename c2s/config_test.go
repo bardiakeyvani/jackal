@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/transport/compress"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
@@ -33,6 +34,25 @@ func TestCompressionConfig(t *testing.T) {
 
 	err = yaml.Unmarshal([]byte("level"), &cmp)
 	require.NotNil(t, err)
+}
+
+func TestTransportConfig(t *testing.T) {
+	s := TransportConfig{}
+
+	err := yaml.Unmarshal([]byte("{type: socket, bind_addr: 0.0.0.0, port: 5222, keep_alive: 120}"), &s)
+	require.Nil(t, err)
+
+	require.Equal(t, transport.Socket, s.Type)
+	require.Equal(t, "0.0.0.0", s.BindAddress)
+	require.Equal(t, 5222, s.Port)
+	require.Equal(t, 120, s.KeepAlive)
+
+	err = yaml.Unmarshal([]byte("{type: websocket, url_path: /xmpp/ws}"), &s)
+	require.Nil(t, err)
+
+	require.Equal(t, transport.WebSocket, s.Type)
+	require.Equal(t, 5222, s.Port)
+	require.Equal(t, 120, s.KeepAlive)
 }
 
 func TestConfig(t *testing.T) {
