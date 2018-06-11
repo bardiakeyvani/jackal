@@ -11,9 +11,6 @@ storage:
   badgerdb:
     data_dir: ./.data
 
-router:
-  domains: [localhost]
-
 virtual_hosts:
   - id: default
 
@@ -28,9 +25,9 @@ virtual_hosts:
 
     transport:
       type: socket # websocket
-      # url_path: /ws
+      # url_path: /xmpp/ws
       bind_addr: 0.0.0.0
-      port: 5222 # 9222
+      port: 5222
       keep_alive: 120
 
     compression:
