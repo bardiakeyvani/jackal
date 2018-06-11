@@ -12,10 +12,18 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"net/http"
+
+	"net"
+
+	"time"
+
 	"github.com/ortuman/jackal/c2s"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
+	"github.com/ortuman/jackal/s2s"
 	"github.com/ortuman/jackal/storage"
+	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/version"
 )
 
@@ -98,7 +106,33 @@ func main() {
 	log.Infof("")
 	log.Infof("jackal %v\n", version.ApplicationVersion)
 
-	c2s.Initialize(cfg.Servers, cfg.Debug.Port)
+	if cfg.Debug.Port > 0 {
+		go initDebugServer(cfg.Debug.Port)
+	}
+	testS2S()
+
+	// start serving c2s...
+	c2s.Initialize(cfg.Servers)
+
+	if debugSrv != nil {
+		debugSrv.Close()
+	}
+}
+
+var debugSrv *http.Server
+
+func initDebugServer(port int) {
+	// initialize debug service
+	debugSrv = &http.Server{}
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	debugSrv.Serve(ln)
+}
+
+func testS2S() {
+	s2s.Dial("", "jackal.im", &stream.S2SDialerOptions{KeepAlive: time.Duration(120) * time.Second})
 }
 
 func createPIDFile(pidFile string) error {

@@ -7,7 +7,6 @@ package c2s
 
 import (
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/hex"
 	"sync/atomic"
 	"time"
@@ -93,7 +92,6 @@ type modules struct {
 
 type Stream struct {
 	cfg            *Config
-	tlsCfg         *tls.Config
 	tr             transport.Transport
 	sess           *session.Session
 	id             string
@@ -112,7 +110,6 @@ func New(id string, tr transport.Transport, cfg *Config) stream.C2S {
 	ctx, doneCh := stream.NewContext()
 	s := &Stream{
 		cfg:     cfg,
-		tlsCfg:  cfg.TLS,
 		tr:      tr,
 		id:      id,
 		ctx:     ctx,
@@ -323,8 +320,6 @@ func (s *Stream) handleElement(elem xml.XElement) {
 		s.handleAuthenticating(elem)
 	case sessionStarted:
 		s.handleSessionStarted(elem)
-	default:
-		break
 	}
 }
 
@@ -516,7 +511,7 @@ func (s *Stream) proceedStartTLS() {
 	s.writeElement(xml.NewElementNamespace("proceed", tlsNamespace))
 
 	// don't do anything in case no TLS configuration has been provided (useful for testing purposes).
-	if tlsCfg := s.tlsCfg; tlsCfg != nil {
+	if tlsCfg := s.cfg.TLS; tlsCfg != nil {
 		s.tr.StartTLS(tlsCfg, false)
 	}
 	log.Infof("secured stream... id: %s", s.id)

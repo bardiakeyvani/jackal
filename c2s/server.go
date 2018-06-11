@@ -39,18 +39,9 @@ type server struct {
 }
 
 // Initialize spawns a connection listener for every server configuration.
-func Initialize(srvConfigurations []Config, debugPort int) {
+func Initialize(srvConfigurations []Config) {
 	if !atomic.CompareAndSwapUint32(&initialized, 0, 1) {
 		return
-	}
-	if debugPort > 0 {
-		// initialize debug service
-		debugSrv = &http.Server{}
-		ln, err := listenerProvider("tcp", fmt.Sprintf(":%d", debugPort))
-		if err != nil {
-			log.Fatalf("%v", err)
-		}
-		go debugSrv.Serve(ln)
 	}
 
 	// initialize all servers

@@ -40,7 +40,7 @@ func TestSocketServer(t *testing.T) {
 			Port: 9998,
 		},
 	}
-	go Initialize([]Config{cfg}, 9999)
+	go Initialize([]Config{cfg})
 
 	go func() {
 		time.Sleep(time.Millisecond * 150)
@@ -61,17 +61,6 @@ func TestSocketServer(t *testing.T) {
 
 		time.Sleep(time.Millisecond * 150) // wait until disconnected
 
-		// test debug port...
-		req, err := http.NewRequest("GET", "http://127.0.0.1:9999/debug/pprof", nil)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		_, err = http.DefaultClient.Do(req)
-		if err != nil {
-			errCh <- err
-			return
-		}
 		Shutdown()
 		errCh <- nil
 	}()
@@ -103,7 +92,7 @@ func TestWebSocketServer(t *testing.T) {
 			Port:    9999,
 		},
 	}
-	go Initialize([]Config{cfg}, 0)
+	go Initialize([]Config{cfg})
 
 	go func() {
 		time.Sleep(time.Millisecond * 150)
