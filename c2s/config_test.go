@@ -6,6 +6,7 @@
 package c2s
 
 import (
+	"os"
 	"testing"
 
 	"github.com/ortuman/jackal/transport/compress"
@@ -35,6 +36,8 @@ func TestCompressionConfig(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
+	defer os.RemoveAll("./.cert")
+
 	s := Config{}
 
 	// resource conflict options...

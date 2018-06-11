@@ -108,11 +108,11 @@ type Stream struct {
 }
 
 // New returns a new c2s stream instance.
-func New(id string, tr transport.Transport, tlsCfg *tls.Config, cfg *Config) stream.C2S {
+func New(id string, tr transport.Transport, cfg *Config) stream.C2S {
 	ctx, doneCh := stream.NewContext()
 	s := &Stream{
 		cfg:     cfg,
-		tlsCfg:  tlsCfg,
+		tlsCfg:  cfg.TLS,
 		tr:      tr,
 		id:      id,
 		ctx:     ctx,

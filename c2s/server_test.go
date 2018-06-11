@@ -16,6 +16,7 @@ import (
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/storage"
 	"github.com/ortuman/jackal/transport"
+	"github.com/ortuman/jackal/util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,15 +24,17 @@ func TestSocketServer(t *testing.T) {
 	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterDomain("localhost")
+
+	privKeyFile := "../testdata/cert/test.server.key"
+	certFile := "../testdata/cert/test.server.crt"
+	tlsConfig, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
+	require.Nil(t, err)
 
 	errCh := make(chan error)
 	cfg := Config{
-		ID: "srv-1234",
-		TLS: TLSConfig{
-			PrivKeyFile: "../testdata/cert/test.server.key",
-			CertFile:    "../testdata/cert/test.server.crt",
-		},
+		ID:  "srv-1234",
+		TLS: tlsConfig,
 		Transport: TransportConfig{
 			Type: transport.Socket,
 			Port: 9998,
@@ -72,7 +75,7 @@ func TestSocketServer(t *testing.T) {
 		Shutdown()
 		errCh <- nil
 	}()
-	err := <-errCh
+	err = <-errCh
 	require.Nil(t, err)
 
 	router.Shutdown()
@@ -83,15 +86,17 @@ func TestWebSocketServer(t *testing.T) {
 	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterDomain("localhost")
+
+	privKeyFile := "../testdata/cert/test.server.key"
+	certFile := "../testdata/cert/test.server.crt"
+	tlsConfig, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
+	require.Nil(t, err)
 
 	errCh := make(chan error)
 	cfg := Config{
-		ID: "srv-1234",
-		TLS: TLSConfig{
-			PrivKeyFile: "../testdata/cert/test.server.key",
-			CertFile:    "../testdata/cert/test.server.crt",
-		},
+		ID:  "srv-1234",
+		TLS: tlsConfig,
 		Transport: TransportConfig{
 			Type:    transport.WebSocket,
 			URLPath: "/xmpp/ws",
@@ -124,7 +129,7 @@ func TestWebSocketServer(t *testing.T) {
 		Shutdown()
 		errCh <- nil
 	}()
-	err := <-errCh
+	err = <-errCh
 	require.Nil(t, err)
 
 	router.Shutdown()

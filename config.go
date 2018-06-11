@@ -29,7 +29,7 @@ type Config struct {
 	} `yaml:"debug"`
 	Logger  log.Config     `yaml:"logger"`
 	Storage storage.Config `yaml:"storage"`
-	Servers []c2s.Config   `yaml:"c2s_servers"`
+	Servers []c2s.Config   `yaml:"virtual_hosts"`
 }
 
 // FromFile loads default global configuration from

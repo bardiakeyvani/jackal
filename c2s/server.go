@@ -6,7 +6,6 @@
 package c2s
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,7 +18,6 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
-	"github.com/ortuman/jackal/util"
 )
 
 var (
@@ -33,7 +31,6 @@ var listenerProvider = net.Listen
 
 type server struct {
 	cfg        *Config
-	tlsCfg     *tls.Config
 	ln         net.Listener
 	wsSrv      *http.Server
 	wsUpgrader *websocket.Upgrader
@@ -91,14 +88,6 @@ func Shutdown() {
 
 func initializeServer(cfg *Config) (*server, error) {
 	srv := &server{cfg: cfg}
-	tlsCfg, err := util.LoadCertificate(cfg.TLS.PrivKeyFile, cfg.TLS.CertFile, cfg.Domain)
-	if err != nil {
-		return nil, err
-	}
-	srv.tlsCfg = tlsCfg
-	if err != nil {
-		return nil, err
-	}
 	servers[cfg.ID] = srv
 	go srv.start()
 	return srv, nil
@@ -148,7 +137,7 @@ func (s *server) listenSocketConn(address string) error {
 func (s *server) listenWebSocketConn(address string) error {
 	http.HandleFunc(s.cfg.Transport.URLPath, s.websocketUpgrade)
 
-	s.wsSrv = &http.Server{TLSConfig: s.tlsCfg}
+	s.wsSrv = &http.Server{TLSConfig: s.cfg.TLS}
 	s.wsUpgrader = &websocket.Upgrader{
 		Subprotocols: []string{"xmpp"},
 		CheckOrigin:  func(r *http.Request) bool { return r.Header.Get("Sec-WebSocket-Protocol") == "xmpp" },
@@ -185,7 +174,7 @@ func (s *server) shutdown() error {
 }
 
 func (s *server) startStream(tr transport.Transport) {
-	stm := New(s.nextID(), tr, s.tlsCfg, s.cfg)
+	stm := New(s.nextID(), tr, s.cfg)
 	if err := router.Instance().RegisterC2S(stm); err != nil {
 		log.Error(err)
 	}

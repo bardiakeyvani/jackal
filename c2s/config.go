@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"crypto/tls"
+
 	"github.com/ortuman/jackal/module/offline"
 	"github.com/ortuman/jackal/module/roster"
 	"github.com/ortuman/jackal/module/xep0077"
@@ -16,6 +18,7 @@ import (
 	"github.com/ortuman/jackal/module/xep0199"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/transport/compress"
+	"github.com/ortuman/jackal/util"
 )
 
 const (
@@ -175,7 +178,7 @@ type TLSConfig struct {
 type Config struct {
 	ID               string
 	Domain           string
-	TLS              TLSConfig
+	TLS              *tls.Config
 	ConnectTimeout   int
 	MaxStanzaSize    int
 	ResourceConflict ResourceConflictPolicy
@@ -205,11 +208,14 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	cfg.ID = p.ID
-	cfg.Domain = p.Domain
 	if len(cfg.Domain) == 0 {
 		cfg.Domain = defaultDomain
 	}
-	cfg.TLS = p.TLS
+	tlsCfg, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, cfg.Domain)
+	if err != nil {
+		return err
+	}
+	cfg.TLS = tlsCfg
 
 	cfg.ConnectTimeout = p.ConnectTimeout
 	if cfg.ConnectTimeout == 0 {

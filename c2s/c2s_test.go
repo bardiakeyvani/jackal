@@ -500,7 +500,7 @@ func tUtilStreamStartSession(conn *fakeSocketConn, t *testing.T) {
 func tUtilStreamInit(t *testing.T) (*Stream, *fakeSocketConn) {
 	conn := newFakeSocketConn()
 	tr := transport.NewSocketTransport(conn, 4096)
-	stm := New("abcd1234", tr, nil, tUtilStreamDefaultConfig())
+	stm := New("abcd1234", tr, tUtilStreamDefaultConfig())
 	router.Instance().RegisterC2S(stm)
 	return stm.(*Stream), conn
 }
