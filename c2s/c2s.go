@@ -122,11 +122,9 @@ func New(id string, tr transport.Transport, tlsCfg *tls.Config, cfg *Config) str
 	// initialize stream context
 	secured := !(tr.Type() == transport.Socket)
 	s.ctx.SetBool(secured, securedCtxKey)
+	s.ctx.SetString(s.cfg.Domain, domainCtxKey)
 
-	domain := router.Instance().DefaultLocalDomain()
-	s.ctx.SetString(domain, domainCtxKey)
-
-	j, _ := xml.NewJID("", domain, "", true)
+	j, _ := xml.NewJID("", s.cfg.Domain, "", true)
 	s.ctx.SetObject(j, jidCtxKey)
 
 	// initialize authenticators
@@ -879,13 +877,13 @@ func (s *Stream) disconnect(err error) {
 	}
 	switch err {
 	case nil:
-		s.disconnectClosingSession(false)
+		s.disconnectClosingSession(false, true)
 	default:
 		if stmErr, ok := err.(*streamerror.Error); ok {
 			s.disconnectWithStreamError(stmErr)
 		} else {
 			log.Error(err)
-			s.disconnectClosingSession(false)
+			s.disconnectClosingSession(false, true)
 		}
 	}
 }
@@ -899,10 +897,12 @@ func (s *Stream) disconnectWithStreamError(err *streamerror.Error) {
 		s.sess.Open(true, "")
 	}
 	s.writeElement(err.Element())
-	s.disconnectClosingSession(true)
+
+	unregistering := err != streamerror.ErrSystemShutdown
+	s.disconnectClosingSession(true, unregistering)
 }
 
-func (s *Stream) disconnectClosingSession(closeSession bool) {
+func (s *Stream) disconnectClosingSession(closeSession, unregistering bool) {
 	if presence := s.Presence(); presence != nil && presence.IsAvailable() && s.mods.roster != nil {
 		s.mods.roster.BroadcastPresenceAndWait(xml.NewPresence(s.JID(), s.JID(), xml.UnavailableType))
 	}
@@ -913,8 +913,10 @@ func (s *Stream) disconnectClosingSession(closeSession bool) {
 	close(s.doneCh)
 
 	// unregister stream
-	if err := router.Instance().UnregisterC2S(s); err != nil {
-		log.Error(err)
+	if unregistering {
+		if err := router.Instance().UnregisterC2S(s); err != nil {
+			log.Error(err)
+		}
 	}
 	if err := s.updateLogoutInfo(); err != nil {
 		log.Error(err)

@@ -82,12 +82,14 @@ func TestXEP0191_GetBlockList(t *testing.T) {
 }
 
 func TestXEP191_BlockAndUnblock(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJID("ortuman", "jackal.im", "balcony", true)
 	stm1 := stream.NewMockC2S(uuid.New(), j1)

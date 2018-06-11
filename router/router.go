@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
@@ -36,93 +35,76 @@ var (
 	ErrBlockedJID = errors.New("router: destination jid is blocked")
 )
 
-// Config represents a router manager configuration.
-type Config struct {
-	Domains     []string `yaml:"domains"`
-	S2SDisabled bool     `yaml:"s2s_disabled"`
-}
-
 // Router manages the sessions associated with an account.
 type Router struct {
-	mu           sync.RWMutex
-	cfg          *Config
-	c2sMu        sync.RWMutex
-	streams      map[string]stream.C2S
-	resources    map[string][]stream.C2S
+	mu        sync.RWMutex
+	domains   map[string]struct{}
+	streams   map[string]stream.C2S
+	resources map[string][]stream.C2S
+
 	blockListsMu sync.RWMutex
 	blockLists   map[string][]*xml.JID
 }
 
 // singleton interface
 var (
-	inst        *Router
 	instMu      sync.RWMutex
-	initialized uint32
+	inst        *Router
+	initialized bool
 )
 
 // Initialize initializes the router manager.
-func Initialize(cfg *Config, _ stream.S2SDialer) {
-	if atomic.CompareAndSwapUint32(&initialized, 0, 1) {
-		instMu.Lock()
-		defer instMu.Unlock()
-
-		if len(cfg.Domains) == 0 {
-			log.Fatalf("no domain specified")
-		}
-		inst = &Router{
-			cfg:        cfg,
-			streams:    make(map[string]stream.C2S),
-			resources:  make(map[string][]stream.C2S),
-			blockLists: make(map[string][]*xml.JID),
-		}
+func Initialize() {
+	instMu.Lock()
+	defer instMu.Unlock()
+	if initialized {
+		return
 	}
+	inst = &Router{
+		domains:    make(map[string]struct{}),
+		streams:    make(map[string]stream.C2S),
+		resources:  make(map[string][]stream.C2S),
+		blockLists: make(map[string][]*xml.JID),
+	}
+	initialized = true
+}
+
+// Shutdown shuts down router manager system.
+// This method should be used only for testing purposes.
+func Shutdown() {
+	instMu.Lock()
+	defer instMu.Unlock()
+	if !initialized {
+		return
+	}
+	inst.shutdown()
+	inst = nil
+	initialized = false
 }
 
 // Instance returns the router manager instance.
 func Instance() *Router {
 	instMu.RLock()
 	defer instMu.RUnlock()
-
 	if inst == nil {
 		log.Fatalf("router manager not initialized")
 	}
 	return inst
 }
 
-// Shutdown shuts down router manager system.
-// This method should be used only for testing purposes.
-func Shutdown() {
-	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
-		inst.c2sMu.RLock()
-		stms := inst.streams
-		inst.c2sMu.RUnlock()
-
-		for _, stm := range stms {
-			stm.Disconnect(streamerror.ErrSystemShutdown)
-		}
-		instMu.Lock()
-		inst = nil
-		instMu.Unlock()
-	}
-}
-
-// DefaultLocalDomain returns default local domain.
-func (r *Router) DefaultLocalDomain() string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.cfg.Domains[0]
-}
-
 // IsLocalDomain returns true if domain is a local server domain.
 func (r *Router) IsLocalDomain(domain string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	for _, localDomain := range r.cfg.Domains {
-		if localDomain == domain {
-			return true
-		}
-	}
-	return false
+	_, ok := r.domains[domain]
+	return ok
+}
+
+// RegisterDomain registers a new local domain.
+func (r *Router) RegisterDomain(domain string) {
+	r.mu.Lock()
+	r.domains[domain] = struct{}{}
+	r.mu.Unlock()
 }
 
 // RegisterC2S registers the specified c2s stream.
@@ -131,8 +113,8 @@ func (r *Router) RegisterC2S(stm stream.C2S) error {
 	if !r.IsLocalDomain(stm.Domain()) {
 		return fmt.Errorf("invalid domain: %s", stm.Domain())
 	}
-	r.c2sMu.Lock()
-	defer r.c2sMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	_, ok := r.streams[stm.ID()]
 	if ok {
@@ -147,8 +129,8 @@ func (r *Router) RegisterC2S(stm stream.C2S) error {
 // associated resource from the manager.
 // An error will be returned in case the stream has not been previously registered.
 func (r *Router) UnregisterC2S(stm stream.C2S) error {
-	r.c2sMu.Lock()
-	defer r.c2sMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	_, ok := r.streams[stm.ID()]
 	if !ok {
@@ -179,8 +161,8 @@ func (r *Router) RegisterC2SResource(stm stream.C2S) error {
 	if len(stm.Resource()) == 0 {
 		return fmt.Errorf("resource not yet assigned: %s", stm.ID())
 	}
-	r.c2sMu.Lock()
-	defer r.c2sMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	if authenticated := r.resources[stm.Username()]; authenticated != nil {
 		r.resources[stm.Username()] = append(authenticated, stm)
@@ -236,8 +218,8 @@ func (r *Router) StreamsMatchingJID(jid *xml.JID) []stream.C2S {
 	if jid.IsFull() {
 		opts |= xml.JIDMatchesResource
 	}
-	r.c2sMu.RLock()
-	defer r.c2sMu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	if len(jid.Node()) > 0 {
 		opts |= xml.JIDMatchesNode
@@ -356,4 +338,13 @@ func (r *Router) jidMatchesBlockedJID(jid, blockedJID *xml.JID) bool {
 		return jid.Matches(blockedJID, xml.JIDMatchesNode|xml.JIDMatchesDomain)
 	}
 	return jid.Matches(blockedJID, xml.JIDMatchesDomain)
+}
+
+func (r *Router) shutdown() {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for k, stm := range inst.streams {
+		stm.Disconnect(streamerror.ErrSystemShutdown)
+		delete(inst.streams, k)
+	}
 }

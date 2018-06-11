@@ -129,12 +129,14 @@ func TestRoster_FetchRoster(t *testing.T) {
 }
 
 func TestRoster_DeliverPendingApprovalNotifications(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	rn := model.RosterNotification{
 		Contact:  "ortuman",
@@ -165,12 +167,14 @@ func TestRoster_DeliverPendingApprovalNotifications(t *testing.T) {
 }
 
 func TestRoster_ReceiveAndBroadcastPresence(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	stm1, stm2 := tUtilRosterInitializeRoster()
 
@@ -233,12 +237,14 @@ func TestRoster_ReceiveAndBroadcastPresence(t *testing.T) {
 }
 
 func TestRoster_Update(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJID("ortuman", "jackal.im", "balcony", true)
 
@@ -282,12 +288,14 @@ func TestRoster_Update(t *testing.T) {
 }
 
 func TestRoster_Subscribe(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	stm1, stm2 := tUtilRosterInitializeRoster()
 
@@ -306,12 +314,14 @@ func TestRoster_Subscribe(t *testing.T) {
 }
 
 func TestRoster_Subscribed(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	// insert roster item...
 	ri := &model.RosterItem{
@@ -369,12 +379,14 @@ func TestRoster_Subscribed(t *testing.T) {
 }
 
 func TestRoster_Unsubscribe(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()
@@ -411,12 +423,14 @@ func TestRoster_Unsubscribe(t *testing.T) {
 }
 
 func TestRoster_Unsubscribed(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()
@@ -455,12 +469,14 @@ func TestRoster_Unsubscribed(t *testing.T) {
 }
 
 func TestRoster_DeleteItem(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()

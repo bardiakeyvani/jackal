@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -24,9 +23,9 @@ var exitHandler = func() { os.Exit(-1) }
 
 // singleton interface
 var (
-	inst        *Logger
 	instMu      sync.RWMutex
-	initialized uint32
+	inst        *Logger
+	initialized bool
 )
 
 // Logger object is used to log messages for a specific system or application component.
@@ -62,16 +61,17 @@ func newLogger(cfg *Config, outWriter io.Writer) (*Logger, error) {
 
 // Initialize initializes the default log subsystem.
 func Initialize(cfg *Config) {
-	if atomic.CompareAndSwapUint32(&initialized, 0, 1) {
-		instMu.Lock()
-		defer instMu.Unlock()
-
-		l, err := newLogger(cfg, os.Stdout)
-		if err != nil {
-			log.Fatalf("%v", err)
-		}
-		inst = l
+	instMu.Lock()
+	defer instMu.Unlock()
+	if initialized {
+		return
 	}
+	l, err := newLogger(cfg, os.Stdout)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	inst = l
+	initialized = true
 }
 
 func instance() *Logger {
@@ -83,13 +83,14 @@ func instance() *Logger {
 // Shutdown shuts down log sub system.
 // This method should be used only for testing purposes.
 func Shutdown() {
-	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
-		instMu.Lock()
-		defer instMu.Unlock()
-
-		inst.closeCh <- true
-		inst = nil
+	instMu.Lock()
+	defer instMu.Unlock()
+	if !initialized {
+		return
 	}
+	inst.closeCh <- true
+	inst = nil
+	initialized = false
 }
 
 // Debugf logs a 'debug' message to the log file

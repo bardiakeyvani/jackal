@@ -12,14 +12,10 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"time"
-
+	"github.com/ortuman/jackal/c2s"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/s2s"
-	"github.com/ortuman/jackal/server"
 	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/version"
 )
 
@@ -87,11 +83,9 @@ func main() {
 	// initialize subsystems
 	log.Initialize(&cfg.Logger)
 
-	router.Initialize(&cfg.Router, nil)
+	router.Initialize()
 
 	storage.Initialize(&cfg.Storage)
-
-	testS2S()
 
 	// create PID file
 	if err := createPIDFile(cfg.PIDFile); err != nil {
@@ -104,20 +98,7 @@ func main() {
 	log.Infof("")
 	log.Infof("jackal %v\n", version.ApplicationVersion)
 
-	server.Initialize(cfg.Servers, cfg.Debug.Port)
-}
-
-var s2sOut stream.S2SOut
-
-func testS2S() {
-	opts := stream.S2SDialerOptions{KeepAlive: time.Duration(120) * time.Second}
-	out, err := s2s.Dial("", "jabber.org", &opts)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	s2sOut = out
-	s2sOut.Start()
+	c2s.Initialize(cfg.Servers, cfg.Debug.Port)
 }
 
 func createPIDFile(pidFile string) error {

@@ -3,7 +3,7 @@
  * See the LICENSE file for more information.
  */
 
-package server
+package c2s
 
 import (
 	"crypto/tls"
@@ -11,17 +11,22 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof" // http profile handlers
-	"net/url"
 	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/ortuman/jackal/c2s"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/util"
+)
+
+var (
+	initialized uint32
+	debugSrv    *http.Server
+	servers     = make(map[string]*server)
+	shutdownCh  = make(chan chan struct{})
 )
 
 var listenerProvider = net.Listen
@@ -36,13 +41,6 @@ type server struct {
 	listening  uint32
 }
 
-var (
-	servers     = map[string]*server{}
-	shutdownCh  = make(chan bool)
-	debugSrv    *http.Server
-	initialized uint32
-)
-
 // Initialize spawns a connection listener for every server configuration.
 func Initialize(srvConfigurations []Config, debugPort int) {
 	if !atomic.CompareAndSwapUint32(&initialized, 0, 1) {
@@ -50,7 +48,12 @@ func Initialize(srvConfigurations []Config, debugPort int) {
 	}
 	if debugPort > 0 {
 		// initialize debug service
-		go startDebugServer(debugPort)
+		debugSrv = &http.Server{}
+		ln, err := listenerProvider("tcp", fmt.Sprintf(":%d", debugPort))
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		go debugSrv.Serve(ln)
 	}
 
 	// initialize all servers
@@ -61,30 +64,38 @@ func Initialize(srvConfigurations []Config, debugPort int) {
 	}
 
 	// wait until shutdown...
-	<-shutdownCh
+	doneCh := <-shutdownCh
 
 	// close all servers
+	if debugSrv != nil {
+		debugSrv.Close()
+		debugSrv = nil
+	}
 	for k, srv := range servers {
 		if err := srv.shutdown(); err != nil {
 			log.Error(err)
 		}
 		delete(servers, k)
 	}
+	atomic.StoreUint32(&initialized, 0)
+	close(doneCh)
 }
 
 // Shutdown closes every server listener.
 // This method should be used only for testing purposes.
 func Shutdown() {
-	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
-		if debugSrv != nil {
-			debugSrv.Close()
-		}
-		shutdownCh <- true
-	}
+	ch := make(chan struct{})
+	shutdownCh <- ch
+	<-ch
 }
 
 func initializeServer(cfg *Config) (*server, error) {
-	srv, err := newServer(cfg)
+	srv := &server{cfg: cfg}
+	tlsCfg, err := util.LoadCertificate(cfg.TLS.PrivKeyFile, cfg.TLS.CertFile, cfg.Domain)
+	if err != nil {
+		return nil, err
+	}
+	srv.tlsCfg = tlsCfg
 	if err != nil {
 		return nil, err
 	}
@@ -93,17 +104,9 @@ func initializeServer(cfg *Config) (*server, error) {
 	return srv, nil
 }
 
-func newServer(cfg *Config) (*server, error) {
-	s := &server{cfg: cfg}
-	tlsCfg, err := util.LoadCertificate(s.cfg.TLS.PrivKeyFile, s.cfg.TLS.CertFile, router.Instance().DefaultLocalDomain())
-	if err != nil {
-		return nil, err
-	}
-	s.tlsCfg = tlsCfg
-	return s, nil
-}
-
 func (s *server) start() {
+	router.Instance().RegisterDomain(s.cfg.Domain)
+
 	bindAddr := s.cfg.Transport.BindAddress
 	port := s.cfg.Transport.Port
 	address := bindAddr + ":" + strconv.Itoa(port)
@@ -121,15 +124,6 @@ func (s *server) start() {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-}
-
-func startDebugServer(port int) {
-	debugSrv = &http.Server{}
-	ln, err := listenerProvider("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
-	debugSrv.Serve(ln)
 }
 
 func (s *server) listenSocketConn(address string) error {
@@ -152,7 +146,7 @@ func (s *server) listenSocketConn(address string) error {
 }
 
 func (s *server) listenWebSocketConn(address string) error {
-	http.HandleFunc(fmt.Sprintf("/%s/ws", url.PathEscape(s.cfg.ID)), s.websocketUpgrade)
+	http.HandleFunc(s.cfg.Transport.URLPath, s.websocketUpgrade)
 
 	s.wsSrv = &http.Server{TLSConfig: s.tlsCfg}
 	s.wsUpgrader = &websocket.Upgrader{
@@ -191,7 +185,7 @@ func (s *server) shutdown() error {
 }
 
 func (s *server) startStream(tr transport.Transport) {
-	stm := c2s.New(s.nextID(), tr, s.tlsCfg, &s.cfg.C2S)
+	stm := New(s.nextID(), tr, s.tlsCfg, s.cfg)
 	if err := router.Instance().RegisterC2S(stm); err != nil {
 		log.Error(err)
 	}

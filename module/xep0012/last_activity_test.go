@@ -68,12 +68,14 @@ func TestXEP0012_GetServerLastActivity(t *testing.T) {
 }
 
 func TestXEP0012_GetOnlineUserLastActivity(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"jackal.im"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJID("ortuman", "jackal.im", "balcony", true)
 	j2, _ := xml.NewJID("noelia", "jackal.im", "", true)

@@ -14,12 +14,16 @@ import (
 	"github.com/ortuman/jackal/module/xep0077"
 	"github.com/ortuman/jackal/module/xep0092"
 	"github.com/ortuman/jackal/module/xep0199"
+	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/transport/compress"
 )
 
 const (
+	defaultDomain                  = "localhost"
 	defaultTransportConnectTimeout = 5
 	defaultTransportMaxStanzaSize  = 32768
+	defaultTransportPort           = 5222
+	defaultTransportKeepAlive      = 120
 )
 
 // ResourceConflictPolicy represents a resource conflict policy.
@@ -112,23 +116,86 @@ func (cfg *ModulesConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	return nil
 }
 
-// Config represents C2S Stream configuration.
+// TransportConfig represents an XMPP stream transport configuration.
+type TransportConfig struct {
+	Type        transport.TransportType
+	BindAddress string
+	Port        int
+	KeepAlive   int
+	URLPath     string
+}
+
+type transportProxyType struct {
+	Type        string `yaml:"type"`
+	BindAddress string `yaml:"bind_addr"`
+	Port        int    `yaml:"port"`
+	KeepAlive   int    `yaml:"keep_alive"`
+	URLPath     string `yaml:"url_path"`
+}
+
+// UnmarshalYAML satisfies Unmarshaler interface.
+func (t *TransportConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	p := transportProxyType{}
+	if err := unmarshal(&p); err != nil {
+		return err
+	}
+	// validate transport type
+	switch p.Type {
+	case "", "socket":
+		t.Type = transport.Socket
+
+	case "websocket":
+		t.Type = transport.WebSocket
+
+	default:
+		return fmt.Errorf("c2s.TransportConfig: unrecognized transport type: %s", p.Type)
+	}
+	t.BindAddress = p.BindAddress
+	t.Port = p.Port
+	t.KeepAlive = p.KeepAlive
+	t.URLPath = p.URLPath
+
+	// assign transport's defaults
+	if t.Port == 0 {
+		t.Port = defaultTransportPort
+	}
+	if t.KeepAlive == 0 {
+		t.KeepAlive = defaultTransportKeepAlive
+	}
+	return nil
+}
+
+// TLSConfig represents a server TLS configuration.
+type TLSConfig struct {
+	CertFile    string `yaml:"cert_path"`
+	PrivKeyFile string `yaml:"privkey_path"`
+}
+
+// Config represents C2S server configuration.
 type Config struct {
+	ID               string
+	Domain           string
+	TLS              TLSConfig
 	ConnectTimeout   int
 	MaxStanzaSize    int
 	ResourceConflict ResourceConflictPolicy
+	Transport        TransportConfig
 	SASL             []string
 	Compression      CompressConfig
 	Modules          ModulesConfig
 }
 
 type configProxy struct {
-	ConnectTimeout   int            `yaml:"connect_timeout"`
-	MaxStanzaSize    int            `yaml:"max_stanza_size"`
-	ResourceConflict string         `yaml:"resource_conflict"`
-	SASL             []string       `yaml:"sasl"`
-	Compression      CompressConfig `yaml:"compression"`
-	Modules          ModulesConfig  `yaml:"modules"`
+	ID               string          `yaml:"id"`
+	Domain           string          `yaml:"domain"`
+	TLS              TLSConfig       `yaml:"tls"`
+	ConnectTimeout   int             `yaml:"connect_timeout"`
+	MaxStanzaSize    int             `yaml:"max_stanza_size"`
+	ResourceConflict string          `yaml:"resource_conflict"`
+	Transport        TransportConfig `yaml:"transport"`
+	SASL             []string        `yaml:"sasl"`
+	Compression      CompressConfig  `yaml:"compression"`
+	Modules          ModulesConfig   `yaml:"modules"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -137,6 +204,22 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal(&p); err != nil {
 		return err
 	}
+	cfg.ID = p.ID
+	cfg.Domain = p.Domain
+	if len(cfg.Domain) == 0 {
+		cfg.Domain = defaultDomain
+	}
+	cfg.TLS = p.TLS
+
+	cfg.ConnectTimeout = p.ConnectTimeout
+	if cfg.ConnectTimeout == 0 {
+		cfg.ConnectTimeout = defaultTransportConnectTimeout
+	}
+	cfg.MaxStanzaSize = p.MaxStanzaSize
+	if cfg.MaxStanzaSize == 0 {
+		cfg.MaxStanzaSize = defaultTransportMaxStanzaSize
+	}
+
 	// validate resource conflict policy type
 	rc := strings.ToLower(p.ResourceConflict)
 	switch rc {
@@ -158,14 +241,7 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("c2s.Config: unrecognized SASL mechanism: %s", sasl)
 		}
 	}
-	cfg.ConnectTimeout = p.ConnectTimeout
-	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = defaultTransportConnectTimeout
-	}
-	cfg.MaxStanzaSize = p.MaxStanzaSize
-	if cfg.MaxStanzaSize == 0 {
-		cfg.MaxStanzaSize = defaultTransportMaxStanzaSize
-	}
+	cfg.Transport = p.Transport
 	cfg.SASL = p.SASL
 	cfg.Compression = p.Compression
 	cfg.Modules = p.Modules

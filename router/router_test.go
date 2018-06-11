@@ -18,10 +18,11 @@ import (
 )
 
 func TestC2SManager(t *testing.T) {
-	Initialize(&Config{Domains: []string{"jackal.im"}}, nil)
+	Initialize()
 	defer Shutdown()
 
-	require.Equal(t, "jackal.im", Instance().DefaultLocalDomain())
+	Instance().RegisterDomain("jackal.im")
+
 	require.True(t, Instance().IsLocalDomain("jackal.im"))
 	require.False(t, Instance().IsLocalDomain("example.org"))
 
@@ -97,12 +98,14 @@ func TestC2SManager(t *testing.T) {
 }
 
 func TestC2SManager_Routing(t *testing.T) {
-	Initialize(&Config{Domains: []string{"jackal.im"}}, nil)
+	Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		Shutdown()
 		storage.Shutdown()
 	}()
+
+	Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("ortuman@jackal.im/garden", false)
@@ -184,8 +187,10 @@ func TestC2SManager_Routing(t *testing.T) {
 }
 
 func TestC2SManager_StreamsMatching(t *testing.T) {
-	Initialize(&Config{Domains: []string{"jackal.im"}}, nil)
+	Initialize()
 	defer Shutdown()
+
+	Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("ortuman@jackal.im/garden", false)
@@ -216,12 +221,14 @@ func TestC2SManager_StreamsMatching(t *testing.T) {
 }
 
 func TestC2SManager_BlockedJID(t *testing.T) {
-	Initialize(&Config{Domains: []string{"jackal.im"}}, nil)
+	Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		Shutdown()
 		storage.Shutdown()
 	}()
+
+	Instance().RegisterDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("hamlet@jackal.im/balcony", false)

@@ -7,7 +7,6 @@ package storage
 
 import (
 	"sync"
-	"sync/atomic"
 
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/storage/badgerdb"
@@ -120,36 +119,36 @@ type Storage interface {
 }
 
 var (
-	inst        Storage
 	instMu      sync.RWMutex
-	initialized uint32
+	inst        Storage
+	initialized bool
 )
 
 // Initialize initializes storage sub system.
 func Initialize(cfg *Config) {
-	if atomic.CompareAndSwapUint32(&initialized, 0, 1) {
-		instMu.Lock()
-		defer instMu.Unlock()
-
-		switch cfg.Type {
-		case BadgerDB:
-			inst = badgerdb.New(cfg.BadgerDB)
-		case MySQL:
-			inst = sql.New(cfg.MySQL)
-		case Memory:
-			inst = memstorage.New()
-		default:
-			// should not be reached
-			break
-		}
+	instMu.Lock()
+	defer instMu.Unlock()
+	if initialized {
+		return
 	}
+	switch cfg.Type {
+	case BadgerDB:
+		inst = badgerdb.New(cfg.BadgerDB)
+	case MySQL:
+		inst = sql.New(cfg.MySQL)
+	case Memory:
+		inst = memstorage.New()
+	default:
+		// should not be reached
+		break
+	}
+	initialized = true
 }
 
 // Instance returns global storage sub system.
 func Instance() Storage {
 	instMu.RLock()
 	defer instMu.RUnlock()
-
 	if inst == nil {
 		log.Fatalf("storage subsystem not initialized")
 	}
@@ -159,13 +158,11 @@ func Instance() Storage {
 // Shutdown shuts down storage sub system.
 // This method should be used only for testing purposes.
 func Shutdown() {
-	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
-		instMu.Lock()
-		defer instMu.Unlock()
-
-		inst.Shutdown()
-		inst = nil
-	}
+	instMu.Lock()
+	defer instMu.Unlock()
+	inst.Shutdown()
+	inst = nil
+	initialized = false
 }
 
 // ActivateMockedError forces the return of ErrMockedError from current storage manager.

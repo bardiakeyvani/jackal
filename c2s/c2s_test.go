@@ -156,12 +156,14 @@ func (a fakeAddr) Network() string { return "net" }
 func (a fakeAddr) String() string  { return "str" }
 
 func TestStream_ConnectTimeout(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	stm, _ := tUtilStreamInit(t)
 	time.Sleep(time.Second * 2)
@@ -169,12 +171,14 @@ func TestStream_ConnectTimeout(t *testing.T) {
 }
 
 func TestStream_Disconnect(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	stm, conn := tUtilStreamInit(t)
 	stm.Disconnect(nil)
@@ -184,12 +188,14 @@ func TestStream_Disconnect(t *testing.T) {
 }
 
 func TestStream_Features(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	stm, conn := tUtilStreamInit(t)
 	tUtilStreamOpen(conn)
@@ -204,12 +210,14 @@ func TestStream_Features(t *testing.T) {
 }
 
 func TestStream_TLS(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -230,12 +238,14 @@ func TestStream_TLS(t *testing.T) {
 }
 
 func TestStream_Compression(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -262,12 +272,14 @@ func TestStream_Compression(t *testing.T) {
 }
 
 func TestStream_StartSession(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -288,12 +300,14 @@ func TestStream_StartSession(t *testing.T) {
 }
 
 func TestStream_SendIQ(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -328,12 +342,14 @@ func TestStream_SendIQ(t *testing.T) {
 }
 
 func TestStream_SendPresence(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -376,12 +392,14 @@ func TestStream_SendPresence(t *testing.T) {
 }
 
 func TestStream_SendMessage(t *testing.T) {
-	router.Initialize(&router.Config{Domains: []string{"localhost"}}, nil)
+	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 	defer func() {
 		router.Shutdown()
 		storage.Shutdown()
 	}()
+
+	router.Instance().RegisterDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
@@ -498,6 +516,7 @@ func tUtilStreamDefaultConfig() *Config {
 	modules["offline"] = struct{}{}
 
 	return &Config{
+		Domain:           "localhost",
 		ConnectTimeout:   1,
 		MaxStanzaSize:    8192,
 		ResourceConflict: Reject,
