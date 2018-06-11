@@ -43,7 +43,6 @@ func Initialize(srvConfigurations []Config) {
 	if !atomic.CompareAndSwapUint32(&initialized, 0, 1) {
 		return
 	}
-
 	// initialize all servers
 	for i := 0; i < len(srvConfigurations); i++ {
 		if _, err := initializeServer(&srvConfigurations[i]); err != nil {
@@ -65,16 +64,17 @@ func Initialize(srvConfigurations []Config) {
 		}
 		delete(servers, k)
 	}
-	atomic.StoreUint32(&initialized, 0)
 	close(doneCh)
 }
 
 // Shutdown closes every server listener.
 // This method should be used only for testing purposes.
 func Shutdown() {
-	ch := make(chan struct{})
-	shutdownCh <- ch
-	<-ch
+	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
+		ch := make(chan struct{})
+		shutdownCh <- ch
+		<-ch
+	}
 }
 
 func initializeServer(cfg *Config) (*server, error) {
