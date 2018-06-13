@@ -77,7 +77,7 @@ virtual_hosts:
         send_interval: 60
 
 s2s:
-  disabled: true
+  disabled: false
   localdomain: jackal.im
 
   dial_timeout: 15
