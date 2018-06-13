@@ -32,10 +32,10 @@ virtual_hosts:
 
     transport:
       type: socket # websocket
-      # url_path: /xmpp/ws
       bind_addr: 0.0.0.0
       port: 5222
       keep_alive: 120
+      url_path: /xmpp/ws
 
     compression:
       level: default

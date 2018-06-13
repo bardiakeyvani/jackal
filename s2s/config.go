@@ -62,7 +62,7 @@ type Config struct {
 	Disabled      bool
 	DialTimeout   time.Duration
 	LocalDomain   string
-	TLS           *tls.Config
+	Certificate   tls.Certificate
 	Transport     TransportConfig
 	MaxStanzaSize int
 }
@@ -94,11 +94,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if !c.Disabled && len(c.LocalDomain) == 0 {
 		return errors.New("s2s.Config: must specify a local domain")
 	}
-	tlsConfig, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, p.LocalDomain)
+	cer, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, p.LocalDomain)
 	if err != nil {
 		return err
 	}
-	c.TLS = tlsConfig
+	c.Certificate = cer
 	c.Transport = p.Transport
 	c.MaxStanzaSize = p.MaxStanzaSize
 	if c.MaxStanzaSize == 0 {

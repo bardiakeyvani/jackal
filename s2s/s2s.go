@@ -54,6 +54,6 @@ func NewDialer() (*Dialer, error) {
 		localDomain: config.LocalDomain,
 		timeout:     config.DialTimeout,
 		keepAlive:   config.Transport.KeepAlive,
-		tlsConfig:   config.TLS,
+		cert:        config.Certificate,
 	}, nil
 }

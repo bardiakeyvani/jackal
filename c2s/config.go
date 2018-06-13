@@ -212,11 +212,11 @@ func (cfg *ServerConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	if len(cfg.Domain) == 0 {
 		cfg.Domain = defaultDomain
 	}
-	tlsCfg, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, cfg.Domain)
+	cer, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, cfg.Domain)
 	if err != nil {
 		return err
 	}
-	cfg.TLS = tlsCfg
+	cfg.TLS = &tls.Config{ServerName: cfg.Domain, Certificates: []tls.Certificate{cer}}
 
 	cfg.ConnectTimeout = p.ConnectTimeout
 	if cfg.ConnectTimeout == 0 {

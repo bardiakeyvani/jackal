@@ -14,10 +14,10 @@ storage:
 virtual_hosts:
   - id: default
 
-    # domain: jackal.im
-    # tls:
-    #  privkey_path: ""
-    #  cert_path: ""
+    domain: ""
+    tls:
+      privkey_path: ""
+      cert_path: ""
 
     connect_timeout: 5
     max_stanza_size: 32768
@@ -25,10 +25,10 @@ virtual_hosts:
 
     transport:
       type: socket # websocket
-      # url_path: /xmpp/ws
       bind_addr: 0.0.0.0
       port: 5222
       keep_alive: 120
+      url_path: /xmpp/ws
 
     compression:
       level: default
@@ -68,3 +68,19 @@ virtual_hosts:
       mod_ping:
         send: no
         send_interval: 60
+
+s2s:
+  disabled: true
+
+  dial_timeout: 15
+  max_stanza_size: 131072
+
+  localdomain: ""
+  tls:
+    privkey_path: ""
+    cert_path: ""
+
+  transport:
+    bind_addr: 0.0.0.0
+    port: 5269
+    keep_alive: 120

@@ -513,8 +513,8 @@ func (s *inStream) proceedStartTLS() {
 	s.writeElement(xml.NewElementNamespace("proceed", tlsNamespace))
 
 	// don't do anything in case no TLS configuration has been provided (useful for testing purposes).
-	if tlsCfg := s.cfg.TLS; tlsCfg != nil {
-		s.cfg.Transport.StartTLS(tlsCfg, false)
+	if tlsConfig := s.cfg.TLS; tlsConfig != nil {
+		s.cfg.Transport.StartTLS(tlsConfig, false)
 	}
 	log.Infof("secured stream... id: %s", s.id)
 
