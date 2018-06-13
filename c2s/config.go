@@ -208,6 +208,7 @@ func (cfg *ServerConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return err
 	}
 	cfg.ID = p.ID
+	cfg.Domain = p.Domain
 	if len(cfg.Domain) == 0 {
 		cfg.Domain = defaultDomain
 	}

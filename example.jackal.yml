@@ -21,10 +21,10 @@ storage:
 virtual_hosts:
   - id: default
 
-    # domain: jackal.im
-    # tls:
-    #  privkey_path: ""
-    #  cert_path: ""
+    domain: jackal.im
+    tls:
+      privkey_path: ""
+      cert_path: ""
 
     connect_timeout: 5
     max_stanza_size: 32768
@@ -80,8 +80,8 @@ s2s:
   disabled: true
   localdomain: jackal.im
 
-  dial_timeout: 10
-  max_stanza_size: 32768
+  dial_timeout: 15
+  max_stanza_size: 131072
 
   tls:
     privkey_path: ""

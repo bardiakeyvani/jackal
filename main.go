@@ -110,7 +110,7 @@ func main() {
 	// start serving s2s...
 	s2s.Initialize(&cfg.S2S)
 
-	testS2S()
+	// testS2S()
 
 	// start serving c2s...
 	c2s.Initialize(cfg.VirtualHosts)
