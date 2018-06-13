@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"sync"
+
 	"github.com/gorilla/websocket"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
@@ -21,16 +23,17 @@ import (
 )
 
 var (
-	initialized uint32
+	mu          sync.RWMutex
 	debugSrv    *http.Server
 	servers     = make(map[string]*server)
 	shutdownCh  = make(chan chan struct{})
+	initialized bool
 )
 
 var listenerProvider = net.Listen
 
 type server struct {
-	cfg        *Config
+	cfg        *ServerConfig
 	ln         net.Listener
 	wsSrv      *http.Server
 	wsUpgrader *websocket.Upgrader
@@ -39,8 +42,10 @@ type server struct {
 }
 
 // Initialize spawns a connection listener for every server configuration.
-func Initialize(srvConfigurations []Config) {
-	if !atomic.CompareAndSwapUint32(&initialized, 0, 1) {
+func Initialize(srvConfigurations []ServerConfig) {
+	mu.Lock()
+	if initialized {
+		mu.Unlock()
 		return
 	}
 	// initialize all servers
@@ -49,10 +54,13 @@ func Initialize(srvConfigurations []Config) {
 			log.Fatalf("%v", err)
 		}
 	}
+	initialized = true
+	mu.Unlock()
 
 	// wait until shutdown...
 	doneCh := <-shutdownCh
 
+	mu.Lock()
 	// close all servers
 	if debugSrv != nil {
 		debugSrv.Close()
@@ -65,19 +73,19 @@ func Initialize(srvConfigurations []Config) {
 		delete(servers, k)
 	}
 	close(doneCh)
+	initialized = false
+	mu.Unlock()
 }
 
 // Shutdown closes every server listener.
 // This method should be used only for testing purposes.
 func Shutdown() {
-	if atomic.CompareAndSwapUint32(&initialized, 1, 0) {
-		ch := make(chan struct{})
-		shutdownCh <- ch
-		<-ch
-	}
+	ch := make(chan struct{})
+	shutdownCh <- ch
+	<-ch
 }
 
-func initializeServer(cfg *Config) (*server, error) {
+func initializeServer(cfg *ServerConfig) (*server, error) {
 	srv := &server{cfg: cfg}
 	servers[cfg.ID] = srv
 	go srv.start()
@@ -165,7 +173,18 @@ func (s *server) shutdown() error {
 }
 
 func (s *server) startStream(tr transport.Transport) {
-	stm := New(s.nextID(), tr, s.cfg)
+	cfg := &InConfig{
+		Domain:           s.cfg.Domain,
+		TLS:              s.cfg.TLS,
+		Transport:        tr,
+		ResourceConflict: s.cfg.ResourceConflict,
+		ConnectTimeout:   time.Duration(s.cfg.ConnectTimeout) * time.Second,
+		MaxStanzaSize:    s.cfg.MaxStanzaSize,
+		SASL:             s.cfg.SASL,
+		Compression:      s.cfg.Compression,
+		Modules:          s.cfg.Modules,
+	}
+	stm := New(s.nextID(), cfg)
 	if err := router.Instance().RegisterC2S(stm); err != nil {
 		log.Error(err)
 	}

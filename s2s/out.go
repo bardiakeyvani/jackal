@@ -6,20 +6,19 @@
 package s2s
 
 import (
-	"crypto/tls"
 	"sync/atomic"
 
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/session"
-	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/xml"
 )
 
 const streamMailboxSize = 64
 
 const (
-	tlsNamespace = "urn:ietf:params:xml:ns:xmpp-tls"
+	tlsNamespace  = "urn:ietf:params:xml:ns:xmpp-tls"
+	saslNamespace = "urn:ietf:params:xml:ns:xmpp-sasl"
 )
 
 const (
@@ -32,21 +31,19 @@ const (
 )
 
 type Out struct {
-	localDomain  string
-	remoteDomain string
-	state        uint32
-	tr           transport.Transport
-	sess         *session.Session
-	secured      bool
-	actorCh      chan func()
+	id      string
+	cfg     *OutConfig
+	state   uint32
+	sess    *session.Session
+	secured bool
+	actorCh chan func()
 }
 
-func NewOut(localDomain, remoteDoamin string, tr transport.Transport) *Out {
+func NewOut(id string, cfg *OutConfig) *Out {
 	s := &Out{
-		localDomain:  localDomain,
-		remoteDomain: remoteDoamin,
-		tr:           tr,
-		actorCh:      make(chan func(), streamMailboxSize),
+		id:      id,
+		cfg:     cfg,
+		actorCh: make(chan func(), streamMailboxSize),
 	}
 	// start s2s out session
 	s.restartSession()
@@ -57,14 +54,14 @@ func NewOut(localDomain, remoteDoamin string, tr transport.Transport) *Out {
 	return s
 }
 
-func (s *Out) Domain() string {
-	return s.localDomain
+func (s *Out) DomainPair() (local string, remote string) {
+	local = s.cfg.LocalDomain
+	remote = s.cfg.RemoteDomain
+	return
 }
 
 func (s *Out) SendElement(elem xml.XElement) {
-	s.actorCh <- func() {
-		s.writeElement(elem)
-	}
+	s.actorCh <- func() { s.writeElement(elem) }
 }
 
 func (s *Out) Disconnect(err error) {
@@ -78,7 +75,7 @@ func (s *Out) Disconnect(err error) {
 
 func (s *Out) Start() {
 	s.actorCh <- func() {
-		s.sess.Open(false, s.remoteDomain)
+		s.sess.Open(false, s.cfg.RemoteDomain)
 	}
 }
 
@@ -126,7 +123,24 @@ func (s *Out) handleConnected(elem xml.XElement) {
 		s.setState(securing)
 
 	} else {
-		// TODO(ortuman): implement dialback
+		ms := elem.Elements().ChildNamespace("mechanisms", saslNamespace)
+		if ms != nil {
+			for _, m := range ms.Elements().All() {
+				if m.Name() == "mechanism" && m.Text() == "EXTERNAL" {
+					auth := xml.NewElementNamespace("auth", saslNamespace)
+					auth.SetAttribute("mechanism", "EXTERNAL")
+					auth.SetText("=")
+					s.writeElement(auth)
+					goto authenticating
+				}
+			}
+		} else {
+
+		}
+		return
+
+	authenticating:
+		s.setState(authenticating)
 	}
 }
 
@@ -138,10 +152,10 @@ func (s *Out) handleSecuring(elem xml.XElement) {
 		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
 		return
 	}
-	s.tr.StartTLS(&tls.Config{ServerName: s.remoteDomain}, true)
+	s.cfg.Transport.StartTLS(s.cfg.TLS, true)
 
 	s.restartSession()
-	s.sess.Open(false, s.remoteDomain)
+	s.sess.Open(false, s.cfg.RemoteDomain)
 
 	s.secured = true
 }
@@ -191,7 +205,7 @@ func (s *Out) disconnectClosingStream(closeStream bool) {
 	// TODO(ortuman): unregister from router manager
 
 	s.setState(disconnected)
-	s.tr.Close()
+	s.cfg.Transport.Close()
 }
 
 func (s *Out) doRead() {
@@ -222,11 +236,11 @@ func (s *Out) handleSessionError(sessErr *session.Error) {
 }
 
 func (s *Out) restartSession() {
-	j, _ := xml.NewJID("", s.localDomain, "", true)
+	j, _ := xml.NewJID("", s.cfg.LocalDomain, "", true)
 	s.sess = session.New(&session.Config{
 		JID:           j,
-		Transport:     s.tr,
-		MaxStanzaSize: 32768,
+		Transport:     s.cfg.Transport,
+		MaxStanzaSize: s.cfg.MaxStanzaSize,
 		IsServer:      true,
 	})
 	s.setState(connecting)

@@ -38,19 +38,16 @@ type C2S interface {
 	Presence() *xml.Presence
 }
 
+type S2SDialer interface {
+	Dial(localDomain, remoteDomain string) (S2SOut, error)
+}
+
 // S2S represents an outgoing server-to-server XMPP stream.
 type S2SOut interface {
 	Stream
-	Domain() string
+	DomainPair() (local string, remote string)
 	Start()
 }
-
-type S2SDialerOptions struct {
-	Timeout   time.Duration
-	KeepAlive time.Duration
-}
-
-type S2SDialer func(localDomain, remoteDomain string, opts *S2SDialerOptions) (S2SOut, error)
 
 // MockC2S represents a mocked c2s stream.
 type MockC2S struct {

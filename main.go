@@ -16,8 +16,6 @@ import (
 
 	"net"
 
-	"time"
-
 	"github.com/ortuman/jackal/c2s"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
@@ -109,15 +107,13 @@ func main() {
 	if cfg.Debug.Port > 0 {
 		go initDebugServer(cfg.Debug.Port)
 	}
-	// start serving s2s..
+	// start serving s2s...
 	s2s.Initialize(&cfg.S2S)
+
+	testS2S()
 
 	// start serving c2s...
 	c2s.Initialize(cfg.VirtualHosts)
-
-	if debugSrv != nil {
-		debugSrv.Close()
-	}
 }
 
 var debugSrv *http.Server
@@ -132,8 +128,21 @@ func initDebugServer(port int) {
 	debugSrv.Serve(ln)
 }
 
+var o stream.S2SOut
+
 func testS2S() {
-	s2s.Dial("", "jackal.im", &stream.S2SDialerOptions{KeepAlive: time.Duration(120) * time.Second})
+	d, err := s2s.NewDialer()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	s, err := d.Dial("404.city")
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	o = s
+	o.Start()
 }
 
 func createPIDFile(pidFile string) error {

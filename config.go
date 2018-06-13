@@ -28,10 +28,10 @@ type Config struct {
 	Debug   struct {
 		Port int `yaml:"port"`
 	} `yaml:"debug"`
-	Logger       log.Config     `yaml:"logger"`
-	Storage      storage.Config `yaml:"storage"`
-	VirtualHosts []c2s.Config   `yaml:"virtual_hosts"`
-	S2S          s2s.Config     `yaml:"s2s"`
+	Logger       log.Config         `yaml:"logger"`
+	Storage      storage.Config     `yaml:"storage"`
+	VirtualHosts []c2s.ServerConfig `yaml:"virtual_hosts"`
+	S2S          s2s.Config         `yaml:"s2s"`
 }
 
 // FromFile loads default global configuration from

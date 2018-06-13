@@ -6,10 +6,10 @@
 package c2s
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strings"
-
-	"crypto/tls"
+	"time"
 
 	"github.com/ortuman/jackal/module/offline"
 	"github.com/ortuman/jackal/module/roster"
@@ -174,8 +174,8 @@ type TLSConfig struct {
 	PrivKeyFile string `yaml:"privkey_path"`
 }
 
-// Config represents C2S server configuration.
-type Config struct {
+// ServerConfig represents C2S server configuration.
+type ServerConfig struct {
 	ID               string
 	Domain           string
 	TLS              *tls.Config
@@ -188,7 +188,7 @@ type Config struct {
 	Modules          ModulesConfig
 }
 
-type configProxy struct {
+type serverConfigProxy struct {
 	ID               string          `yaml:"id"`
 	Domain           string          `yaml:"domain"`
 	TLS              TLSConfig       `yaml:"tls"`
@@ -202,8 +202,8 @@ type configProxy struct {
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
-func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	p := configProxy{}
+func (cfg *ServerConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	p := serverConfigProxy{}
 	if err := unmarshal(&p); err != nil {
 		return err
 	}
@@ -252,4 +252,16 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	cfg.Compression = p.Compression
 	cfg.Modules = p.Modules
 	return nil
+}
+
+type InConfig struct {
+	Domain           string
+	TLS              *tls.Config
+	Transport        transport.Transport
+	ConnectTimeout   time.Duration
+	MaxStanzaSize    int
+	ResourceConflict ResourceConflictPolicy
+	SASL             []string
+	Compression      CompressConfig
+	Modules          ModulesConfig
 }

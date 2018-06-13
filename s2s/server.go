@@ -11,35 +11,17 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"time"
-
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/transport"
 )
 
 var listenerProvider = net.Listen
 
-var (
-	srv         *server
-	initialized uint32
-)
-
 type server struct {
 	cfg       *Config
 	ln        net.Listener
 	stmCnt    int32
 	listening uint32
-}
-
-func Initialize(cfg *Config) {
-	if cfg.Disabled {
-		return
-	}
-	if !atomic.CompareAndSwapUint32(&initialized, 0, 1) {
-		return
-	}
-	srv = &server{cfg: cfg}
-	go srv.start()
 }
 
 func (s *server) start() {
@@ -54,6 +36,10 @@ func (s *server) start() {
 	}
 }
 
+func (s *server) shutdown() {
+	s.ln.Close()
+}
+
 func (s *server) listenConn(address string) error {
 	ln, err := listenerProvider("tcp", address)
 	if err != nil {
@@ -65,8 +51,7 @@ func (s *server) listenConn(address string) error {
 	for atomic.LoadUint32(&s.listening) == 1 {
 		conn, err := ln.Accept()
 		if err == nil {
-			keepAlive := time.Second * time.Duration(s.cfg.Transport.KeepAlive)
-			go s.startStream(transport.NewSocketTransport(conn, keepAlive))
+			go s.startStream(transport.NewSocketTransport(conn, s.cfg.Transport.KeepAlive))
 			continue
 		}
 	}

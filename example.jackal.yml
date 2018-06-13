@@ -77,7 +77,16 @@ virtual_hosts:
         send_interval: 60
 
 s2s:
-  disabled: false
+  disabled: true
+  localdomain: jackal.im
+
+  dial_timeout: 10
+  max_stanza_size: 32768
+
+  tls:
+    privkey_path: ""
+    cert_path: ""
+
   transport:
     bind_addr: 0.0.0.0
     port: 5269

@@ -6,28 +6,47 @@
 package s2s
 
 import (
-	"errors"
+	"crypto/tls"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/transport"
 )
 
-func Dial(localDomain, remoteDomain string, opts *stream.S2SDialerOptions) (stream.S2SOut, error) {
-	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", remoteDomain)
+type Dialer struct {
+	localDomain   string
+	tlsConfig     *tls.Config
+	timeout       time.Duration
+	keepAlive     time.Duration
+	maxStanzaSize int
+	dialCnt       uint32
+}
+
+func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
+	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", domain)
+
+	var target string
+	if err != nil || len(addrs) == 0 || (len(addrs) == 1 && addrs[0].Target == ".") {
+		target = domain + ":5269"
+	} else {
+		target = strings.TrimSuffix(addrs[0].Target, ".")
+	}
+	conn, err := net.DialTimeout("tcp", target+":"+strconv.Itoa(int(addrs[0].Port)), d.timeout)
 	if err != nil {
 		return nil, err
 	}
-	if len(addrs) == 0 || (len(addrs) == 1 && addrs[0].Target == ".") {
-		return nil, errors.New("service not available at this domain")
+	tr := transport.NewSocketTransport(conn, d.keepAlive)
+	cfg := &OutConfig{
+		Transport:     tr,
+		RemoteDomain:  domain,
+		LocalDomain:   d.localDomain,
+		TLS:           d.tlsConfig,
+		MaxStanzaSize: d.maxStanzaSize,
 	}
-	target := strings.TrimSuffix(addrs[0].Target, ".")
-	conn, err := net.Dial("tcp", target+":"+strconv.Itoa(int(addrs[0].Port)))
-	if err != nil {
-		return nil, err
-	}
-	tr := transport.NewSocketTransport(conn, opts.KeepAlive)
-	return NewOut(localDomain, remoteDomain, tr), nil
+	return NewOut(fmt.Sprintf("s2s_out:%d", atomic.AddUint32(&d.dialCnt, 1)), cfg), nil
 }
