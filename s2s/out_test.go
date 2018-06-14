@@ -16,5 +16,5 @@ func TestDialbackKey(t *testing.T) {
 	from := "example.org"
 	to := "xmpp.example.com"
 	streamID := "D60000229F"
-	require.Equal(t, "37c69b1cf07a3f67c04a5ef5902fa5114f2c76fe4a2686482ba5b89323075643", dialbackKey(to, from, streamID, secret))
+	require.Equal(t, "37c69b1cf07a3f67c04a5ef5902fa5114f2c76fe4a2686482ba5b89323075643", dialbackKey(from, to, streamID, secret))
 }
