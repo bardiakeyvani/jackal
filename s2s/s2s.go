@@ -31,6 +31,7 @@ func Initialize(cfg *Config) {
 	config = cfg
 	srv = &server{cfg: cfg}
 	go srv.start()
+	initialized = true
 }
 
 func Shutdown() {
@@ -39,6 +40,7 @@ func Shutdown() {
 	if initialized {
 		srv.shutdown()
 		srv = nil
+		initialized = false
 	}
 }
 
