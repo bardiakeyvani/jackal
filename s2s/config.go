@@ -59,21 +59,23 @@ type TLSConfig struct {
 }
 
 type Config struct {
-	Disabled      bool
-	DialTimeout   time.Duration
-	LocalDomain   string
-	Certificate   tls.Certificate
-	Transport     TransportConfig
-	MaxStanzaSize int
+	Disabled       bool
+	DialTimeout    time.Duration
+	DialbackSecret string
+	MaxStanzaSize  int
+	LocalDomain    string
+	Certificate    tls.Certificate
+	Transport      TransportConfig
 }
 
 type configProxy struct {
-	Disabled      bool            `yaml:"disabled"`
-	DialTimeout   int             `yaml:"dial_timeout"`
-	LocalDomain   string          `yaml:"localdomain"`
-	TLS           TLSConfig       `yaml:"tls"`
-	Transport     TransportConfig `yaml:"transport"`
-	MaxStanzaSize int             `yaml:"max_stanza_size"`
+	Disabled       bool            `yaml:"disabled"`
+	DialTimeout    int             `yaml:"dial_timeout"`
+	DialbackSecret string          `yaml:"dialback_secret"`
+	MaxStanzaSize  int             `yaml:"max_stanza_size"`
+	LocalDomain    string          `yaml:"localdomain"`
+	TLS            TLSConfig       `yaml:"tls"`
+	Transport      TransportConfig `yaml:"transport"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -85,6 +87,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	c.Disabled = p.Disabled
 	if c.Disabled {
 		return nil
+	}
+	c.DialbackSecret = p.DialbackSecret
+	if len(c.DialbackSecret) == 0 {
+		return errors.New("s2s.Config: must specify a dialback secret")
 	}
 	c.DialTimeout = time.Duration(p.DialTimeout) * time.Second
 	if c.DialTimeout == 0 {
@@ -107,10 +113,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type OutConfig struct {
-	LocalDomain   string
-	RemoteDomain  string
-	TLS           *tls.Config
-	Transport     transport.Transport
-	MaxStanzaSize int
+type outConfig struct {
+	dbSecret      string
+	localDomain   string
+	remoteDomain  string
+	tls           *tls.Config
+	transport     transport.Transport
+	maxStanzaSize int
 }

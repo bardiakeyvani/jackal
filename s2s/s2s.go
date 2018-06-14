@@ -53,6 +53,7 @@ func NewDialer() (*Dialer, error) {
 		return nil, errors.New("s2s not enabled")
 	}
 	return &Dialer{
+		dbSecret:    config.DialbackSecret,
 		localDomain: config.LocalDomain,
 		timeout:     config.DialTimeout,
 		keepAlive:   config.Transport.KeepAlive,

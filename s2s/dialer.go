@@ -19,6 +19,7 @@ import (
 )
 
 type Dialer struct {
+	dbSecret      string
 	localDomain   string
 	cert          tls.Certificate
 	timeout       time.Duration
@@ -45,12 +46,13 @@ func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
 		Certificates: []tls.Certificate{d.cert},
 	}
 	tr := transport.NewSocketTransport(conn, d.keepAlive)
-	cfg := &OutConfig{
-		Transport:     tr,
-		RemoteDomain:  domain,
-		LocalDomain:   d.localDomain,
-		TLS:           tlsConfig,
-		MaxStanzaSize: d.maxStanzaSize,
+	cfg := &outConfig{
+		dbSecret:      d.dbSecret,
+		transport:     tr,
+		remoteDomain:  domain,
+		localDomain:   d.localDomain,
+		tls:           tlsConfig,
+		maxStanzaSize: d.maxStanzaSize,
 	}
-	return NewOut(fmt.Sprintf("s2s_out:%d", atomic.AddUint32(&d.dialCnt, 1)), cfg), nil
+	return newOut(fmt.Sprintf("s2s_out:%d", atomic.AddUint32(&d.dialCnt, 1)), cfg), nil
 }

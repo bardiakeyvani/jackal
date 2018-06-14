@@ -31,9 +31,9 @@ const (
 	disconnected
 )
 
-type Out struct {
+type out struct {
 	id            string
-	cfg           *OutConfig
+	cfg           *outConfig
 	state         uint32
 	sess          *session.Session
 	secured       bool
@@ -41,8 +41,8 @@ type Out struct {
 	actorCh       chan func()
 }
 
-func NewOut(id string, cfg *OutConfig) *Out {
-	s := &Out{
+func newOut(id string, cfg *outConfig) *out {
+	s := &out{
 		id:      id,
 		cfg:     cfg,
 		actorCh: make(chan func(), streamMailboxSize),
@@ -56,17 +56,17 @@ func NewOut(id string, cfg *OutConfig) *Out {
 	return s
 }
 
-func (s *Out) DomainPair() (local string, remote string) {
-	local = s.cfg.LocalDomain
-	remote = s.cfg.RemoteDomain
+func (s *out) DomainPair() (local string, remote string) {
+	local = s.cfg.localDomain
+	remote = s.cfg.remoteDomain
 	return
 }
 
-func (s *Out) SendElement(elem xml.XElement) {
+func (s *out) SendElement(elem xml.XElement) {
 	s.actorCh <- func() { s.writeElement(elem) }
 }
 
-func (s *Out) Disconnect(err error) {
+func (s *out) Disconnect(err error) {
 	waitCh := make(chan struct{})
 	s.actorCh <- func() {
 		s.disconnect(err)
@@ -75,14 +75,14 @@ func (s *Out) Disconnect(err error) {
 	<-waitCh
 }
 
-func (s *Out) Start() {
+func (s *out) Start() {
 	s.actorCh <- func() {
-		s.sess.Open(false, s.cfg.RemoteDomain)
+		s.sess.Open(false, s.cfg.remoteDomain)
 	}
 }
 
 // runs on its own goroutine
-func (s *Out) loop() {
+func (s *out) loop() {
 	for {
 		f := <-s.actorCh
 		f()
@@ -93,7 +93,7 @@ func (s *Out) loop() {
 }
 
 // runs on its own goroutine
-func (s *Out) handleElement(elem xml.XElement) {
+func (s *out) handleElement(elem xml.XElement) {
 	switch s.getState() {
 	case connecting:
 		s.handleConnecting(elem)
@@ -108,11 +108,11 @@ func (s *Out) handleElement(elem xml.XElement) {
 	}
 }
 
-func (s *Out) handleConnecting(elem xml.XElement) {
+func (s *out) handleConnecting(elem xml.XElement) {
 	s.setState(connected)
 }
 
-func (s *Out) handleConnected(elem xml.XElement) {
+func (s *out) handleConnected(elem xml.XElement) {
 	if elem.Name() != "stream:features" {
 		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
 		return
@@ -138,7 +138,7 @@ func (s *Out) handleConnected(elem xml.XElement) {
 	}
 }
 
-func (s *Out) handleSecuring(elem xml.XElement) {
+func (s *out) handleSecuring(elem xml.XElement) {
 	if elem.Name() != "proceed" {
 		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
 		return
@@ -146,15 +146,15 @@ func (s *Out) handleSecuring(elem xml.XElement) {
 		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
 		return
 	}
-	s.cfg.Transport.StartTLS(s.cfg.TLS, true)
+	s.cfg.transport.StartTLS(s.cfg.tls, true)
 
 	s.restartSession()
-	s.sess.Open(false, s.cfg.RemoteDomain)
+	s.sess.Open(false, s.cfg.remoteDomain)
 
 	s.secured = true
 }
 
-func (s *Out) handleAuthenticating(elem xml.XElement) {
+func (s *out) handleAuthenticating(elem xml.XElement) {
 	if elem.Namespace() != saslNamespace {
 		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
 		return
@@ -162,7 +162,7 @@ func (s *Out) handleAuthenticating(elem xml.XElement) {
 	switch elem.Name() {
 	case "success":
 		s.restartSession()
-		s.sess.Open(false, s.cfg.RemoteDomain)
+		s.sess.Open(false, s.cfg.remoteDomain)
 		s.authenticated = true
 
 	case "failure":
@@ -173,10 +173,10 @@ func (s *Out) handleAuthenticating(elem xml.XElement) {
 	}
 }
 
-func (s *Out) handleStarted(elem xml.XElement) {
+func (s *out) handleStarted(elem xml.XElement) {
 }
 
-func (s *Out) disconnect(err error) {
+func (s *out) disconnect(err error) {
 	if s.getState() == disconnected {
 		return
 	}
@@ -193,11 +193,11 @@ func (s *Out) disconnect(err error) {
 	}
 }
 
-func (s *Out) writeElement(elem xml.XElement) {
+func (s *out) writeElement(elem xml.XElement) {
 	s.sess.Send(elem)
 }
 
-func (s *Out) readElement(elem xml.XElement) {
+func (s *out) readElement(elem xml.XElement) {
 	if elem != nil {
 		s.handleElement(elem)
 	}
@@ -206,22 +206,22 @@ func (s *Out) readElement(elem xml.XElement) {
 	}
 }
 
-func (s *Out) disconnectWithStreamError(err *streamerror.Error) {
+func (s *out) disconnectWithStreamError(err *streamerror.Error) {
 	s.writeElement(err.Element())
 	s.disconnectClosingStream(true)
 }
 
-func (s *Out) disconnectClosingStream(closeStream bool) {
+func (s *out) disconnectClosingStream(closeStream bool) {
 	if closeStream {
 		s.sess.Close()
 	}
 	// TODO(ortuman): unregister from router manager
 
 	s.setState(disconnected)
-	s.cfg.Transport.Close()
+	s.cfg.transport.Close()
 }
 
-func (s *Out) doRead() {
+func (s *out) doRead() {
 	if elem, sErr := s.sess.Receive(); sErr == nil {
 		s.actorCh <- func() {
 			s.readElement(elem)
@@ -234,7 +234,7 @@ func (s *Out) doRead() {
 	}
 }
 
-func (s *Out) handleSessionError(sessErr *session.Error) {
+func (s *out) handleSessionError(sessErr *session.Error) {
 	switch err := sessErr.UnderlyingErr.(type) {
 	case nil:
 		s.disconnect(nil)
@@ -248,11 +248,11 @@ func (s *Out) handleSessionError(sessErr *session.Error) {
 	}
 }
 
-func (s *Out) hasStartTLSFeature(features xml.XElement) bool {
+func (s *out) hasStartTLSFeature(features xml.XElement) bool {
 	return features.Elements().ChildrenNamespace("starttls", tlsNamespace) != nil
 }
 
-func (s *Out) hasExternalAuthFeature(features xml.XElement) bool {
+func (s *out) hasExternalAuthFeature(features xml.XElement) bool {
 	ms := features.Elements().ChildNamespace("mechanisms", saslNamespace)
 	if ms != nil {
 		for _, m := range ms.Elements().All() {
@@ -264,25 +264,25 @@ func (s *Out) hasExternalAuthFeature(features xml.XElement) bool {
 	return false
 }
 
-func (s *Out) hasDialbackFeature(features xml.XElement) bool {
+func (s *out) hasDialbackFeature(features xml.XElement) bool {
 	return features.Elements().ChildrenNamespace("dialback", dialbackNamespace) != nil
 }
 
-func (s *Out) restartSession() {
-	j, _ := xml.NewJID("", s.cfg.LocalDomain, "", true)
+func (s *out) restartSession() {
+	j, _ := xml.NewJID("", s.cfg.localDomain, "", true)
 	s.sess = session.New(&session.Config{
 		JID:           j,
-		Transport:     s.cfg.Transport,
-		MaxStanzaSize: s.cfg.MaxStanzaSize,
+		Transport:     s.cfg.transport,
+		MaxStanzaSize: s.cfg.maxStanzaSize,
 		IsServer:      true,
 	})
 	s.setState(connecting)
 }
 
-func (s *Out) setState(state uint32) {
+func (s *out) setState(state uint32) {
 	atomic.StoreUint32(&s.state, state)
 }
 
-func (s *Out) getState() uint32 {
+func (s *out) getState() uint32 {
 	return atomic.LoadUint32(&s.state)
 }

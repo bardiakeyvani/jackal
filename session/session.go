@@ -9,6 +9,7 @@ import (
 	stdxml "encoding/xml"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync/atomic"
 
@@ -312,7 +313,13 @@ func (s *Session) mapErrorToSessionError(err error) *Error {
 		return &Error{UnderlyingErr: streamerror.ErrPolicyViolation}
 
 	default:
-		switch err.(type) {
+		switch e := err.(type) {
+		case net.Error:
+			if e.Timeout() {
+				return &Error{UnderlyingErr: streamerror.ErrConnectionTimeout}
+			} else {
+				return &Error{UnderlyingErr: err}
+			}
 		case *stdxml.SyntaxError:
 			return &Error{UnderlyingErr: streamerror.ErrInvalidXML}
 		default:

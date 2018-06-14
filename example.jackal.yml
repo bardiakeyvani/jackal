@@ -79,8 +79,9 @@ virtual_hosts:
 s2s:
   disabled: false
 
-  dial_timeout: 15
   max_stanza_size: 131072
+  dial_timeout: 15
+  dialback_secret: s3cr3tf0rd14lb4ck
 
   localdomain: jackal.im
   tls:
