@@ -17,8 +17,9 @@ import (
 const streamMailboxSize = 64
 
 const (
-	tlsNamespace  = "urn:ietf:params:xml:ns:xmpp-tls"
-	saslNamespace = "urn:ietf:params:xml:ns:xmpp-sasl"
+	tlsNamespace      = "urn:ietf:params:xml:ns:xmpp-tls"
+	saslNamespace     = "urn:ietf:params:xml:ns:xmpp-sasl"
+	dialbackNamespace = "urn:xmpp:features:dialback"
 )
 
 const (
@@ -31,12 +32,13 @@ const (
 )
 
 type Out struct {
-	id      string
-	cfg     *OutConfig
-	state   uint32
-	sess    *session.Session
-	secured bool
-	actorCh chan func()
+	id            string
+	cfg           *OutConfig
+	state         uint32
+	sess          *session.Session
+	secured       bool
+	authenticated bool
+	actorCh       chan func()
 }
 
 func NewOut(id string, cfg *OutConfig) *Out {
@@ -99,6 +101,8 @@ func (s *Out) handleElement(elem xml.XElement) {
 		s.handleConnected(elem)
 	case securing:
 		s.handleSecuring(elem)
+	case authenticating:
+		s.handleAuthenticating(elem)
 	case started:
 		s.handleStarted(elem)
 	}
@@ -114,7 +118,7 @@ func (s *Out) handleConnected(elem xml.XElement) {
 		return
 	}
 	if !s.secured {
-		if elem.Elements().Child("starttls") == nil {
+		if !s.hasStartTLSFeature(elem) {
 			// unsecured channels not supported
 			s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
 			return
@@ -122,25 +126,15 @@ func (s *Out) handleConnected(elem xml.XElement) {
 		s.writeElement(xml.NewElementNamespace("starttls", tlsNamespace))
 		s.setState(securing)
 
-	} else {
-		ms := elem.Elements().ChildNamespace("mechanisms", saslNamespace)
-		if ms != nil {
-			for _, m := range ms.Elements().All() {
-				if m.Name() == "mechanism" && m.Text() == "EXTERNAL" {
-					auth := xml.NewElementNamespace("auth", saslNamespace)
-					auth.SetAttribute("mechanism", "EXTERNAL")
-					auth.SetText("=")
-					s.writeElement(auth)
-					goto authenticating
-				}
-			}
-		} else {
-
-		}
-		return
-
-	authenticating:
+	} else if s.hasExternalAuthFeature(elem) && !s.authenticated {
+		auth := xml.NewElementNamespace("auth", saslNamespace)
+		auth.SetAttribute("mechanism", "EXTERNAL")
+		auth.SetText("=")
+		s.writeElement(auth)
 		s.setState(authenticating)
+
+	} else if s.hasDialbackFeature(elem) {
+
 	}
 }
 
@@ -158,6 +152,25 @@ func (s *Out) handleSecuring(elem xml.XElement) {
 	s.sess.Open(false, s.cfg.RemoteDomain)
 
 	s.secured = true
+}
+
+func (s *Out) handleAuthenticating(elem xml.XElement) {
+	if elem.Namespace() != saslNamespace {
+		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
+		return
+	}
+	switch elem.Name() {
+	case "success":
+		s.restartSession()
+		s.sess.Open(false, s.cfg.RemoteDomain)
+		s.authenticated = true
+
+	case "failure":
+		s.disconnectWithStreamError(streamerror.ErrRemoteConnectionFailed)
+
+	default:
+		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
+	}
 }
 
 func (s *Out) handleStarted(elem xml.XElement) {
@@ -233,6 +246,26 @@ func (s *Out) handleSessionError(sessErr *session.Error) {
 		log.Error(err)
 		s.disconnectWithStreamError(streamerror.ErrUndefinedCondition)
 	}
+}
+
+func (s *Out) hasStartTLSFeature(features xml.XElement) bool {
+	return features.Elements().ChildrenNamespace("starttls", tlsNamespace) != nil
+}
+
+func (s *Out) hasExternalAuthFeature(features xml.XElement) bool {
+	ms := features.Elements().ChildNamespace("mechanisms", saslNamespace)
+	if ms != nil {
+		for _, m := range ms.Elements().All() {
+			if m.Name() == "mechanism" && m.Text() == "EXTERNAL" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (s *Out) hasDialbackFeature(features xml.XElement) bool {
+	return features.Elements().ChildrenNamespace("dialback", dialbackNamespace) != nil
 }
 
 func (s *Out) restartSession() {
