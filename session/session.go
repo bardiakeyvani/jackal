@@ -27,6 +27,7 @@ const (
 	jabberServerNamespace = "jabber:server"
 	framedStreamNamespace = "urn:ietf:params:xml:ns:xmpp-framing"
 	streamNamespace       = "http://etherx.jabber.org/streams"
+	dialbackNamespace     = "jabber:server:dialback"
 )
 
 // Error represents a session error.
@@ -53,17 +54,22 @@ type Config struct {
 	MaxStanzaSize int
 
 	// IsServer defines whether or not this session is established
-	// between two servers.
+	// by the server.
 	IsServer bool
+
+	// IsInitiating defines whether or not this is an initiating
+	// entity session.
+	IsInitiating bool
 }
 
 // Session represents an XMPP session between the two peers.
 type Session struct {
-	tr       transport.Transport
-	pr       *xml.Parser
-	isServer bool
-	opened   uint32
-	started  uint32
+	tr           transport.Transport
+	pr           *xml.Parser
+	isServer     bool
+	isInitiating bool
+	opened       uint32
+	started      uint32
 
 	mu   sync.RWMutex
 	id   string
@@ -80,12 +86,13 @@ func New(config *Config) *Session {
 		parsingMode = xml.WebSocketStream
 	}
 	s := &Session{
-		tr:       config.Transport,
-		pr:       xml.NewParser(config.Transport, parsingMode, config.MaxStanzaSize),
-		isServer: config.IsServer,
-		sJID:     config.JID,
+		tr:           config.Transport,
+		pr:           xml.NewParser(config.Transport, parsingMode, config.MaxStanzaSize),
+		isServer:     config.IsServer,
+		isInitiating: config.IsInitiating,
+		sJID:         config.JID,
 	}
-	if s.isServer {
+	if !s.isInitiating {
 		s.id = uuid.New()
 	}
 	return s
@@ -119,6 +126,9 @@ func (s *Session) Open(asClient bool, remoteDomain string) error {
 		ops = xml.NewElementName("stream:stream")
 		ops.SetAttribute("xmlns", s.namespace())
 		ops.SetAttribute("xmlns:stream", streamNamespace)
+		if s.isServer && s.isInitiating {
+			ops.SetAttribute("xmlns:db", dialbackNamespace)
+		}
 		buf.WriteString(`<?xml version="1.0"?>`)
 
 	case transport.WebSocket:
@@ -129,7 +139,7 @@ func (s *Session) Open(asClient bool, remoteDomain string) error {
 	default:
 		return nil
 	}
-	if s.isServer {
+	if !s.isInitiating {
 		s.mu.RLock()
 		ops.SetAttribute("id", s.id)
 		s.mu.RUnlock()
@@ -181,7 +191,7 @@ func (s *Session) Receive() (xml.XElement, *Error) {
 			if err := s.validateStreamElement(elem); err != nil {
 				return nil, err
 			}
-			if s.isServer {
+			if s.isInitiating {
 				s.mu.Lock()
 				s.id = elem.ID()
 				s.mu.Unlock()

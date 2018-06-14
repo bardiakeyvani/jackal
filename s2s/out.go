@@ -298,6 +298,7 @@ func (s *out) restartSession() {
 		Transport:     s.cfg.transport,
 		MaxStanzaSize: s.cfg.maxStanzaSize,
 		IsServer:      true,
+		IsInitiating:  true,
 	})
 	s.setState(connecting)
 }
