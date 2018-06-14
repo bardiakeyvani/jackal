@@ -6,6 +6,10 @@
 package s2s
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"sync"
 
 	"github.com/ortuman/jackal/log"
@@ -59,4 +63,12 @@ func NewDialer() (*Dialer, error) {
 		keepAlive:   config.Transport.KeepAlive,
 		cert:        config.Certificate,
 	}, nil
+}
+
+func dialbackKey(from, to, streamID, secret string) string {
+	h := sha256.New()
+	h.Write([]byte(secret))
+	hm := hmac.New(sha256.New, []byte(hex.EncodeToString(h.Sum(nil))))
+	hm.Write([]byte(fmt.Sprintf("%s %s %s", to, from, streamID)))
+	return hex.EncodeToString(hm.Sum(nil))
 }

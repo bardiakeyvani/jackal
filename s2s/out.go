@@ -8,11 +8,6 @@ package s2s
 import (
 	"sync/atomic"
 
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/session"
@@ -290,12 +285,4 @@ func (s *out) setState(state uint32) {
 
 func (s *out) getState() uint32 {
 	return atomic.LoadUint32(&s.state)
-}
-
-func dialbackKey(from, to, streamID, secret string) string {
-	h := sha256.New()
-	h.Write([]byte(secret))
-	hm := hmac.New(sha256.New, []byte(hex.EncodeToString(h.Sum(nil))))
-	hm.Write([]byte(fmt.Sprintf("%s %s %s", to, from, streamID)))
-	return hex.EncodeToString(hm.Sum(nil))
 }
