@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ortuman/jackal/errors"
@@ -58,13 +59,15 @@ type Config struct {
 
 // Session represents an XMPP session between the two peers.
 type Session struct {
-	id       string
 	tr       transport.Transport
 	pr       *xml.Parser
 	isServer bool
 	opened   uint32
 	started  uint32
-	sJID     atomic.Value
+
+	mu   sync.RWMutex
+	id   string
+	sJID *xml.JID
 }
 
 // New creates a new session instance.
@@ -77,18 +80,29 @@ func New(config *Config) *Session {
 		parsingMode = xml.WebSocketStream
 	}
 	s := &Session{
-		id:       uuid.New(),
 		tr:       config.Transport,
 		pr:       xml.NewParser(config.Transport, parsingMode, config.MaxStanzaSize),
 		isServer: config.IsServer,
+		sJID:     config.JID,
 	}
-	s.sJID.Store(config.JID)
+	if s.isServer {
+		s.id = uuid.New()
+	}
 	return s
+}
+
+// ID returns session stream identifier.
+func (s *Session) ID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.id
 }
 
 // UpdateJID updates current session JID.
 func (s *Session) UpdateJID(sessionJID *xml.JID) {
-	s.sJID.Store(sessionJID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sJID = sessionJID
 }
 
 // Open initializes a sending the proper XMPP payload.
@@ -115,7 +129,11 @@ func (s *Session) Open(asClient bool, remoteDomain string) error {
 	default:
 		return nil
 	}
-	ops.SetAttribute("id", s.id)
+	if s.isServer {
+		s.mu.RLock()
+		ops.SetAttribute("id", s.id)
+		s.mu.RUnlock()
+	}
 	ops.SetAttribute("from", s.jid().Domain())
 	if !asClient {
 		ops.SetAttribute("to", remoteDomain)
@@ -162,6 +180,11 @@ func (s *Session) Receive() (xml.XElement, *Error) {
 		if atomic.LoadUint32(&s.started) == 0 {
 			if err := s.validateStreamElement(elem); err != nil {
 				return nil, err
+			}
+			if s.isServer {
+				s.mu.Lock()
+				s.id = elem.ID()
+				s.mu.Unlock()
 			}
 			atomic.StoreUint32(&s.started, 1)
 
@@ -298,7 +321,9 @@ func (s *Session) namespace() string {
 }
 
 func (s *Session) jid() *xml.JID {
-	return s.sJID.Load().(*xml.JID)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.sJID
 }
 
 func (s *Session) mapErrorToSessionError(err error) *Error {

@@ -27,6 +27,7 @@ const (
 	connected
 	securing
 	authenticating
+	verifying
 	started
 	disconnected
 )
@@ -103,6 +104,8 @@ func (s *out) handleElement(elem xml.XElement) {
 		s.handleSecuring(elem)
 	case authenticating:
 		s.handleAuthenticating(elem)
+	case verifying:
+		s.handleVerifying(elem)
 	case started:
 		s.handleStarted(elem)
 	}
@@ -126,15 +129,15 @@ func (s *out) handleConnected(elem xml.XElement) {
 		s.writeElement(xml.NewElementNamespace("starttls", tlsNamespace))
 		s.setState(securing)
 
-	} else if s.hasExternalAuthFeature(elem) && !s.authenticated {
-		auth := xml.NewElementNamespace("auth", saslNamespace)
-		auth.SetAttribute("mechanism", "EXTERNAL")
-		auth.SetText("=")
-		s.writeElement(auth)
-		s.setState(authenticating)
-
-	} else if s.hasDialbackFeature(elem) {
-
+	} else {
+		if s.hasExternalAuthFeature(elem) && !s.authenticated {
+			s.authenticate()
+		} else if s.hasDialbackFeature(elem) {
+			s.dialback()
+		} else {
+			// do not allow remote connection
+			s.disconnectWithStreamError(streamerror.ErrRemoteConnectionFailed)
+		}
 	}
 }
 
@@ -171,6 +174,9 @@ func (s *out) handleAuthenticating(elem xml.XElement) {
 	default:
 		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
 	}
+}
+
+func (s *out) handleVerifying(elem xml.XElement) {
 }
 
 func (s *out) handleStarted(elem xml.XElement) {
@@ -246,6 +252,23 @@ func (s *out) handleSessionError(sessErr *session.Error) {
 		log.Error(err)
 		s.disconnectWithStreamError(streamerror.ErrUndefinedCondition)
 	}
+}
+
+func (s *out) authenticate() {
+	auth := xml.NewElementNamespace("auth", saslNamespace)
+	auth.SetAttribute("mechanism", "EXTERNAL")
+	auth.SetText("=")
+	s.writeElement(auth)
+	s.setState(authenticating)
+}
+
+func (s *out) dialback() {
+	db := xml.NewElementName("db:result")
+	db.SetFrom(s.cfg.localDomain)
+	db.SetTo(s.cfg.remoteDomain)
+	db.SetText(dialbackKey(s.cfg.localDomain, s.cfg.remoteDomain, s.sess.ID(), s.cfg.dbSecret))
+	s.writeElement(db)
+	s.setState(verifying)
 }
 
 func (s *out) hasStartTLSFeature(features xml.XElement) bool {
