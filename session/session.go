@@ -53,6 +53,9 @@ type Config struct {
 	// can be read from the session transport.
 	MaxStanzaSize int
 
+	// Remote domain represents the remote receiving entity domain name.
+	RemoteDomain string
+
 	// IsServer defines whether or not this session is established
 	// by the server.
 	IsServer bool
@@ -66,6 +69,7 @@ type Config struct {
 type Session struct {
 	tr           transport.Transport
 	pr           *xml.Parser
+	remoteDomain string
 	isServer     bool
 	isInitiating bool
 	opened       uint32
@@ -88,6 +92,7 @@ func New(config *Config) *Session {
 	s := &Session{
 		tr:           config.Transport,
 		pr:           xml.NewParser(config.Transport, parsingMode, config.MaxStanzaSize),
+		remoteDomain: config.RemoteDomain,
 		isServer:     config.IsServer,
 		isInitiating: config.IsInitiating,
 		sJID:         config.JID,
@@ -113,7 +118,7 @@ func (s *Session) UpdateJID(sessionJID *xml.JID) {
 }
 
 // Open initializes a sending the proper XMPP payload.
-func (s *Session) Open(asClient bool, remoteDomain string) error {
+func (s *Session) Open() error {
 	if !atomic.CompareAndSwapUint32(&s.opened, 0, 1) {
 		return errors.New("session already opened")
 	}
@@ -145,8 +150,8 @@ func (s *Session) Open(asClient bool, remoteDomain string) error {
 		s.mu.RUnlock()
 	}
 	ops.SetAttribute("from", s.jid().Domain())
-	if !asClient {
-		ops.SetAttribute("to", remoteDomain)
+	if s.isInitiating && len(s.remoteDomain) > 0 {
+		ops.SetAttribute("to", s.remoteDomain)
 	}
 	ops.SetAttribute("version", "1.0")
 	ops.ToXML(buf, includeClosing)

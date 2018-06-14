@@ -78,7 +78,7 @@ func (s *out) Disconnect(err error) {
 
 func (s *out) Start() {
 	s.actorCh <- func() {
-		s.sess.Open(false, s.cfg.remoteDomain)
+		s.sess.Open()
 	}
 }
 
@@ -152,7 +152,7 @@ func (s *out) handleSecuring(elem xml.XElement) {
 	s.cfg.transport.StartTLS(s.cfg.tls, true)
 
 	s.restartSession()
-	s.sess.Open(false, s.cfg.remoteDomain)
+	s.sess.Open()
 
 	s.secured = true
 }
@@ -165,7 +165,7 @@ func (s *out) handleAuthenticating(elem xml.XElement) {
 	switch elem.Name() {
 	case "success":
 		s.restartSession()
-		s.sess.Open(false, s.cfg.remoteDomain)
+		s.sess.Open()
 		s.authenticated = true
 
 	case "failure":
@@ -297,6 +297,7 @@ func (s *out) restartSession() {
 		JID:           j,
 		Transport:     s.cfg.transport,
 		MaxStanzaSize: s.cfg.maxStanzaSize,
+		RemoteDomain:  s.cfg.remoteDomain,
 		IsServer:      true,
 		IsInitiating:  true,
 	})
