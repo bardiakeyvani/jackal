@@ -109,12 +109,8 @@ func Instance() *Router {
 func (r *Router) IsLocalHost(domain string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if len(r.hosts) > 0 {
-		_, ok := r.hosts[domain]
-		return ok
-	} else {
-		return domain == defaultDomain
-	}
+	_, ok := r.hosts[domain]
+	return ok
 }
 
 func (r *Router) GetCertificates() []tls.Certificate {

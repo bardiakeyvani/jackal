@@ -136,7 +136,7 @@ func testS2S() {
 		log.Error(err)
 		return
 	}
-	s, err := d.Dial("404.city")
+	s, err := d.Dial("jackal.im", "404.city")
 	if err != nil {
 		log.Error(err)
 		return

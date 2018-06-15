@@ -11,13 +11,14 @@ storage:
   badgerdb:
     data_dir: ./.data
 
+hosts:
+  - name: jackal.im
+    tls:
+        privkey_path: "privkey.pem"
+        cert_path: "fullchain.pem"
+
 virtual_hosts:
   - id: default
-
-    domain: ""
-    tls:
-      privkey_path: ""
-      cert_path: ""
 
     connect_timeout: 5
     max_stanza_size: 32768
@@ -70,15 +71,11 @@ virtual_hosts:
         send_interval: 60
 
 s2s:
-  disabled: true
+  disabled: false
 
   dial_timeout: 15
+  dialback_secret: s3cr3tf0rd14lb4ck
   max_stanza_size: 131072
-
-  localdomain: ""
-  tls:
-    privkey_path: ""
-    cert_path: ""
 
   transport:
     bind_addr: 0.0.0.0

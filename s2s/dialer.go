@@ -26,12 +26,12 @@ type Dialer struct {
 	dialCnt       uint32
 }
 
-func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
-	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", domain)
+func (d *Dialer) Dial(localDomain, remoteDomain string) (stream.S2SOut, error) {
+	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", remoteDomain)
 
 	var target string
 	if err != nil || len(addrs) == 0 || (len(addrs) == 1 && addrs[0].Target == ".") {
-		target = domain + ":5269"
+		target = remoteDomain + ":5269"
 	} else {
 		target = strings.TrimSuffix(addrs[0].Target, ".")
 	}
@@ -40,7 +40,7 @@ func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
 		return nil, err
 	}
 	tlsConfig := &tls.Config{
-		ServerName:   domain,
+		ServerName:   remoteDomain,
 		Certificates: router.Instance().GetCertificates(),
 	}
 	tr := transport.NewSocketTransport(conn, d.keepAlive)
@@ -48,7 +48,8 @@ func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
 		dbSecret:      d.dbSecret,
 		tls:           tlsConfig,
 		transport:     tr,
-		remoteDomain:  domain,
+		localDomain:   localDomain,
+		remoteDomain:  remoteDomain,
 		maxStanzaSize: d.maxStanzaSize,
 	}
 	return newOutStream(cfg), nil
