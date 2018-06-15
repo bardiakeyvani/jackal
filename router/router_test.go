@@ -21,7 +21,7 @@ func TestC2SManager(t *testing.T) {
 	Initialize()
 	defer Shutdown()
 
-	Instance().RegisterDomain("jackal.im")
+	Instance().RegisterLocalDomain("jackal.im")
 
 	require.True(t, Instance().IsLocalDomain("jackal.im"))
 	require.False(t, Instance().IsLocalDomain("example.org"))
@@ -105,7 +105,7 @@ func TestC2SManager_Routing(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	Instance().RegisterDomain("jackal.im")
+	Instance().RegisterLocalDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("ortuman@jackal.im/garden", false)
@@ -190,7 +190,7 @@ func TestC2SManager_StreamsMatching(t *testing.T) {
 	Initialize()
 	defer Shutdown()
 
-	Instance().RegisterDomain("jackal.im")
+	Instance().RegisterLocalDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("ortuman@jackal.im/garden", false)
@@ -228,7 +228,7 @@ func TestC2SManager_BlockedJID(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	Instance().RegisterDomain("jackal.im")
+	Instance().RegisterLocalDomain("jackal.im")
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("hamlet@jackal.im/balcony", false)

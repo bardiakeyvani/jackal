@@ -41,6 +41,7 @@ type Router struct {
 	blockListsMu sync.RWMutex
 	blockLists   map[string][]*xml.JID
 	c2sRouter    *c2sRouter
+	s2sRouter    *s2sRouter
 }
 
 // singleton interface
@@ -61,6 +62,7 @@ func Initialize() {
 		domains:    make(map[string]struct{}),
 		blockLists: make(map[string][]*xml.JID),
 		c2sRouter:  newC2SRouter(),
+		s2sRouter:  newS2SRouter(),
 	}
 	initialized = true
 }
@@ -88,8 +90,8 @@ func Instance() *Router {
 	return inst
 }
 
-// RegisterDomain registers a new local domain.
-func (r *Router) RegisterDomain(domain string) {
+// RegisterLocalDomain registers a new local domain.
+func (r *Router) RegisterLocalDomain(domain string) {
 	r.mu.Lock()
 	r.domains[domain] = struct{}{}
 	r.mu.Unlock()

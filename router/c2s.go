@@ -43,6 +43,9 @@ func (r *c2sRouter) registerStream(stm stream.C2S) error {
 }
 
 func (r *c2sRouter) unregisterStream(stm stream.C2S) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	_, ok := r.streams[stm.ID()]
 	if !ok {
 		return fmt.Errorf("stream not found: %s", stm.ID())

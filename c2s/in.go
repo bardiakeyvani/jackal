@@ -895,11 +895,11 @@ func (s *inStream) disconnectWithStreamError(err *streamerror.Error) {
 	}
 	s.writeElement(err.Element())
 
-	unregistering := err != streamerror.ErrSystemShutdown
-	s.disconnectClosingSession(true, unregistering)
+	unregister := err != streamerror.ErrSystemShutdown
+	s.disconnectClosingSession(true, unregister)
 }
 
-func (s *inStream) disconnectClosingSession(closeSession, unregistering bool) {
+func (s *inStream) disconnectClosingSession(closeSession, unregister bool) {
 	if presence := s.Presence(); presence != nil && presence.IsAvailable() && s.mods.roster != nil {
 		s.mods.roster.BroadcastPresenceAndWait(xml.NewPresence(s.JID(), s.JID(), xml.UnavailableType))
 	}
@@ -910,7 +910,7 @@ func (s *inStream) disconnectClosingSession(closeSession, unregistering bool) {
 	close(s.doneCh)
 
 	// unregister stream
-	if unregistering {
+	if unregister {
 		if err := router.Instance().UnregisterC2S(s); err != nil {
 			log.Error(err)
 		}

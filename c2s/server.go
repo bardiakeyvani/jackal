@@ -33,7 +33,7 @@ var (
 var listenerProvider = net.Listen
 
 type server struct {
-	cfg        *ServerConfig
+	cfg        *Config
 	ln         net.Listener
 	wsSrv      *http.Server
 	wsUpgrader *websocket.Upgrader
@@ -42,7 +42,7 @@ type server struct {
 }
 
 // Initialize spawns a connection listener for every server configuration.
-func Initialize(srvConfigurations []ServerConfig) {
+func Initialize(srvConfigurations []Config) {
 	mu.Lock()
 	if initialized {
 		mu.Unlock()
@@ -85,7 +85,7 @@ func Shutdown() {
 	<-ch
 }
 
-func initializeServer(cfg *ServerConfig) (*server, error) {
+func initializeServer(cfg *Config) (*server, error) {
 	srv := &server{cfg: cfg}
 	servers[cfg.ID] = srv
 	go srv.start()
@@ -93,7 +93,7 @@ func initializeServer(cfg *ServerConfig) (*server, error) {
 }
 
 func (s *server) start() {
-	router.Instance().RegisterDomain(s.cfg.Domain)
+	router.Instance().RegisterLocalDomain(s.cfg.Domain)
 
 	bindAddr := s.cfg.Transport.BindAddress
 	port := s.cfg.Transport.Port

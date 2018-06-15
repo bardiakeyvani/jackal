@@ -174,8 +174,8 @@ type TLSConfig struct {
 	PrivKeyFile string `yaml:"privkey_path"`
 }
 
-// ServerConfig represents C2S server configuration.
-type ServerConfig struct {
+// Config represents C2S server configuration.
+type Config struct {
 	ID               string
 	Domain           string
 	TLS              *tls.Config
@@ -202,7 +202,7 @@ type serverConfigProxy struct {
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
-func (cfg *ServerConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	p := serverConfigProxy{}
 	if err := unmarshal(&p); err != nil {
 		return err

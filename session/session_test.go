@@ -53,7 +53,7 @@ func TestSession_Open(t *testing.T) {
 	_, err1 := sess.Receive()
 	require.NotNil(t, err1)
 
-	sess.Open(false, "")
+	sess.Open()
 	pr := xml.NewParser(tr.wrBuf, xml.SocketStream, 0)
 	_, _ = pr.ParseElement() // read xml header
 	elem, err := pr.ParseElement()
@@ -65,7 +65,7 @@ func TestSession_Open(t *testing.T) {
 	// test server socket session start
 	tr.wrBuf.Reset()
 	sess = New(&Config{JID: j, Transport: tr, IsServer: true})
-	sess.Open(false, "")
+	sess.Open()
 	pr = xml.NewParser(tr.wrBuf, xml.SocketStream, 0)
 	_, _ = pr.ParseElement() // read xml header
 	elem, err = pr.ParseElement()
@@ -75,7 +75,7 @@ func TestSession_Open(t *testing.T) {
 	// test websocket session start
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	pr = xml.NewParser(tr.wrBuf, xml.WebSocketStream, 0)
 	elem, err = pr.ParseElement()
 	require.Nil(t, err)
@@ -85,10 +85,10 @@ func TestSession_Open(t *testing.T) {
 	// test unsupported transport type
 	tr = newFakeTransport(transport.TransportType(9999))
 	sess = New(&Config{JID: j, Transport: tr})
-	require.Nil(t, sess.Open(false, ""))
+	require.Nil(t, sess.Open())
 
 	// open twice
-	require.NotNil(t, sess.Open(false, ""))
+	require.NotNil(t, sess.Open())
 }
 
 func TestSession_Close(t *testing.T) {
@@ -98,7 +98,7 @@ func TestSession_Close(t *testing.T) {
 
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	tr.wrBuf.Reset()
 
 	sess.Close()
@@ -106,7 +106,7 @@ func TestSession_Close(t *testing.T) {
 
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	tr.wrBuf.Reset()
 
 	sess.Close()
@@ -120,7 +120,7 @@ func TestSession_Send(t *testing.T) {
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
 	elem := xml.NewElementNamespace("open", "urn:ietf:params:xml:ns:xmpp-framing")
-	sess.Open(false, "")
+	sess.Open()
 	tr.wrBuf.Reset()
 
 	sess.Send(elem)
@@ -133,13 +133,13 @@ func TestSession_Receive(t *testing.T) {
 	j, _ := xml.NewJIDString("ortuman@jackal.im/res", true)
 	tr := newFakeTransport(transport.WebSocket)
 	sess := New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	_, err := sess.Receive()
 	require.Equal(t, &Error{}, err)
 
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	open := xml.NewElementNamespace("open", "")
 	open.ToXML(tr.rdBuf, true)
 
@@ -148,7 +148,7 @@ func TestSession_Receive(t *testing.T) {
 
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	open.SetNamespace("urn:ietf:params:xml:ns:xmpp-framing")
 	open.SetVersion("1.0")
 	open.ToXML(tr.rdBuf, true)
@@ -163,7 +163,7 @@ func TestSession_Receive(t *testing.T) {
 
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	open.ToXML(tr.rdBuf, true)
 
 	// bad stanza
@@ -184,13 +184,13 @@ func TestSession_IsValidNamespace(t *testing.T) {
 
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	require.Nil(t, sess.validateNamespace(iqClient))
 	require.Equal(t, &Error{UnderlyingErr: streamerror.ErrInvalidNamespace}, sess.validateNamespace(iqServer))
 
 	tr = newFakeTransport(transport.Socket)
 	sess = New(&Config{JID: j, Transport: tr, IsServer: true})
-	sess.Open(false, "")
+	sess.Open()
 	require.Equal(t, &Error{UnderlyingErr: streamerror.ErrInvalidNamespace}, sess.validateNamespace(iqClient))
 	require.Nil(t, sess.validateNamespace(iqServer))
 }
@@ -203,7 +203,7 @@ func TestSession_IsValidFrom(t *testing.T) {
 
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j2, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	sess.UpdateJID(j1)
 	require.False(t, sess.isValidFrom("romeo@jackal.im"))
 
@@ -225,7 +225,7 @@ func TestSession_ValidateStream(t *testing.T) {
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
 	err := sess.validateStreamElement(elem1)
-	sess.Open(false, "")
+	sess.Open()
 	require.NotNil(t, err)
 	require.Equal(t, streamerror.ErrInvalidNamespace, err.UnderlyingErr)
 
@@ -254,7 +254,7 @@ func TestSession_ValidateStream(t *testing.T) {
 	// try websocket
 	tr = newFakeTransport(transport.WebSocket)
 	sess = New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	err = sess.validateStreamElement(elem4)
 	require.NotNil(t, err)
 	require.Equal(t, streamerror.ErrInvalidNamespace, err.UnderlyingErr)
@@ -290,7 +290,7 @@ func TestSession_ExtractAddresses(t *testing.T) {
 
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j1, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 	from, to, err := sess.extractAddresses(iq)
 	require.Nil(t, err)
 	require.Equal(t, "jackal.im", from.String())
@@ -323,7 +323,7 @@ func TestSession_BuildStanza(t *testing.T) {
 	j, _ := xml.NewJIDString("ortuman@jackal.im/res", true)
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 
 	elem := xml.NewElementNamespace("n", "ns")
 	_, err := sess.buildStanza(elem)
@@ -376,7 +376,7 @@ func TestSession_MapErrorq(t *testing.T) {
 	j, _ := xml.NewJIDString("ortuman@jackal.im/res", true)
 	tr := newFakeTransport(transport.Socket)
 	sess := New(&Config{JID: j, Transport: tr})
-	sess.Open(false, "")
+	sess.Open()
 
 	require.Equal(t, &Error{}, sess.mapErrorToSessionError(nil))
 	require.Equal(t, &Error{}, sess.mapErrorToSessionError(io.EOF))

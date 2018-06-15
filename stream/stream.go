@@ -38,9 +38,10 @@ type C2S interface {
 	Presence() *xml.Presence
 }
 
-// S2S represents a generic server-to-server XMPP stream.
+// S2S represents a server-to-server XMPP stream.
 type S2S interface {
 	Stream
+	IsInitiating() bool
 	DomainPair() (local string, remote string)
 }
 

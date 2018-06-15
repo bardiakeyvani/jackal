@@ -163,9 +163,9 @@ func TestStream_ConnectTimeout(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
-	stm, _ := tUtilStreamInit(t)
+	stm, _ := tUtilStreamInit()
 	time.Sleep(time.Second * 2)
 	require.Equal(t, disconnected, stm.getState())
 }
@@ -178,9 +178,9 @@ func TestStream_Disconnect(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	stm.Disconnect(nil)
 	require.True(t, conn.waitClose())
 
@@ -195,9 +195,9 @@ func TestStream_Features(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 
 	elem := conn.parseOutboundElement()
@@ -217,11 +217,11 @@ func TestStream_TLS(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 
 	_ = conn.parseOutboundElement() // read stream opening...
@@ -245,11 +245,11 @@ func TestStream_Compression(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 	_ = conn.parseOutboundElement() // read stream opening...
 	_ = conn.parseOutboundElement() // read stream features...
@@ -279,11 +279,11 @@ func TestStream_StartSession(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 	_ = conn.parseOutboundElement() // read stream opening...
 	_ = conn.parseOutboundElement() // read stream features...
@@ -307,11 +307,11 @@ func TestStream_SendIQ(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 	_ = conn.parseOutboundElement() // read stream opening...
 	_ = conn.parseOutboundElement() // read stream features...
@@ -349,11 +349,11 @@ func TestStream_SendPresence(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 	_ = conn.parseOutboundElement() // read stream opening...
 	_ = conn.parseOutboundElement() // read stream features...
@@ -399,11 +399,11 @@ func TestStream_SendMessage(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	storage.Instance().InsertOrUpdateUser(&model.User{Username: "user", Password: "pencil"})
 
-	stm, conn := tUtilStreamInit(t)
+	stm, conn := tUtilStreamInit()
 	tUtilStreamOpen(conn)
 	_ = conn.parseOutboundElement() // read stream opening...
 	_ = conn.parseOutboundElement() // read stream features...
@@ -497,15 +497,15 @@ func tUtilStreamStartSession(conn *fakeSocketConn, t *testing.T) {
 	time.Sleep(time.Millisecond * 100) // wait until stream internal state changes
 }
 
-func tUtilStreamInit(t *testing.T) (*Stream, *fakeSocketConn) {
+func tUtilStreamInit() (*inStream, *fakeSocketConn) {
 	conn := newFakeSocketConn()
 	tr := transport.NewSocketTransport(conn, 4096)
-	stm := New("abcd1234", tr, tUtilStreamDefaultConfig())
+	stm := New("abcd1234", tUtilStreamDefaultConfig(tr))
 	router.Instance().RegisterC2S(stm)
-	return stm.(*Stream), conn
+	return stm.(*inStream), conn
 }
 
-func tUtilStreamDefaultConfig() *Config {
+func tUtilStreamDefaultConfig(tr transport.Transport) *InConfig {
 	modules := map[string]struct{}{}
 	modules["roster"] = struct{}{}
 	modules["private"] = struct{}{}
@@ -515,8 +515,9 @@ func tUtilStreamDefaultConfig() *Config {
 	modules["ping"] = struct{}{}
 	modules["offline"] = struct{}{}
 
-	return &Config{
+	return &InConfig{
 		Domain:           "localhost",
+		Transport:        tr,
 		ConnectTimeout:   1,
 		MaxStanzaSize:    8192,
 		ResourceConflict: Reject,

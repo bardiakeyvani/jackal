@@ -24,12 +24,14 @@ func TestSocketServer(t *testing.T) {
 	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	privKeyFile := "../testdata/cert/test.server.key"
 	certFile := "../testdata/cert/test.server.crt"
-	tlsConfig, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
+	cer, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
 	require.Nil(t, err)
+
+	tlsConfig := &tls.Config{ServerName: "localhost", Certificates: []tls.Certificate{cer}}
 
 	errCh := make(chan error)
 	cfg := Config{
@@ -75,12 +77,14 @@ func TestWebSocketServer(t *testing.T) {
 	router.Initialize()
 	storage.Initialize(&storage.Config{Type: storage.Memory})
 
-	router.Instance().RegisterDomain("localhost")
+	router.Instance().RegisterLocalDomain("localhost")
 
 	privKeyFile := "../testdata/cert/test.server.key"
 	certFile := "../testdata/cert/test.server.crt"
-	tlsConfig, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
+	cer, err := util.LoadCertificate(privKeyFile, certFile, "localhost")
 	require.Nil(t, err)
+
+	tlsConfig := &tls.Config{ServerName: "localhost", Certificates: []tls.Certificate{cer}}
 
 	errCh := make(chan error)
 	cfg := Config{

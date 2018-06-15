@@ -136,7 +136,7 @@ func TestRoster_DeliverPendingApprovalNotifications(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	rn := model.RosterNotification{
 		Contact:  "ortuman",
@@ -174,7 +174,7 @@ func TestRoster_ReceiveAndBroadcastPresence(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	stm1, stm2 := tUtilRosterInitializeRoster()
 
@@ -244,7 +244,7 @@ func TestRoster_Update(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	j1, _ := xml.NewJID("ortuman", "jackal.im", "balcony", true)
 
@@ -295,7 +295,7 @@ func TestRoster_Subscribe(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	stm1, stm2 := tUtilRosterInitializeRoster()
 
@@ -321,7 +321,7 @@ func TestRoster_Subscribed(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	// insert roster item...
 	ri := &model.RosterItem{
@@ -386,7 +386,7 @@ func TestRoster_Unsubscribe(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()
@@ -430,7 +430,7 @@ func TestRoster_Unsubscribed(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()
@@ -476,7 +476,7 @@ func TestRoster_DeleteItem(t *testing.T) {
 		storage.Shutdown()
 	}()
 
-	router.Instance().RegisterDomain("jackal.im")
+	router.Instance().RegisterLocalDomain("jackal.im")
 
 	tUtilRosterInsertRosterItems()
 	stm1, stm2 := tUtilRosterInitializeRoster()
