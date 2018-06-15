@@ -10,6 +10,7 @@ import (
 
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
+	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/session"
 	"github.com/ortuman/jackal/xml"
 )
@@ -54,6 +55,7 @@ func newOut(id string, cfg *outConfig) *out {
 	go s.loop()
 	go s.doRead() // start reading transport...
 
+	s.sess.Open()
 	return s
 }
 
@@ -74,12 +76,6 @@ func (s *out) Disconnect(err error) {
 		close(waitCh)
 	}
 	<-waitCh
-}
-
-func (s *out) Start() {
-	s.actorCh <- func() {
-		s.sess.Open()
-	}
 }
 
 // runs on its own goroutine
@@ -221,7 +217,7 @@ func (s *out) disconnectClosingStream(closeStream bool) {
 	if closeStream {
 		s.sess.Close()
 	}
-	// TODO(ortuman): unregister from router manager
+	router.Instance().UnregisterS2S(s)
 
 	s.setState(disconnected)
 	s.cfg.transport.Close()

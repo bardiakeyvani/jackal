@@ -669,7 +669,7 @@ func (s *inStream) bindResource(iq *xml.IQ) {
 
 	s.writeElement(result)
 
-	if err := router.Instance().RegisterC2SResource(s); err != nil {
+	if err := router.Instance().BindC2S(s); err != nil {
 		log.Error(err)
 	}
 }

@@ -131,7 +131,7 @@ func (s *Session) Open() error {
 		ops = xml.NewElementName("stream:stream")
 		ops.SetAttribute("xmlns", s.namespace())
 		ops.SetAttribute("xmlns:stream", streamNamespace)
-		if s.isServer && s.isInitiating {
+		if s.isServer {
 			ops.SetAttribute("xmlns:db", dialbackNamespace)
 		}
 		buf.WriteString(`<?xml version="1.0"?>`)

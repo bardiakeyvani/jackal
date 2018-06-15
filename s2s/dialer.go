@@ -28,7 +28,7 @@ type Dialer struct {
 	dialCnt       uint32
 }
 
-func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
+func (d *Dialer) Dial(domain string) (stream.S2S, error) {
 	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", domain)
 
 	var target string

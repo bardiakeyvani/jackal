@@ -128,7 +128,7 @@ func initDebugServer(port int) {
 	debugSrv.Serve(ln)
 }
 
-var o stream.S2SOut
+var o stream.S2S
 
 func testS2S() {
 	d, err := s2s.NewDialer()
@@ -142,7 +142,6 @@ func testS2S() {
 		return
 	}
 	o = s
-	o.Start()
 }
 
 func createPIDFile(pidFile string) error {

@@ -55,18 +55,18 @@ func TestC2SManager(t *testing.T) {
 	require.NotNil(t, err)
 
 	strm1.SetResource("")
-	err = Instance().RegisterC2SResource(strm1) // resource not assigned...
+	err = Instance().BindC2S(strm1) // resource not assigned...
 	require.NotNil(t, err)
 	strm1.SetResource("balcony")
-	err = Instance().RegisterC2SResource(strm1)
+	err = Instance().BindC2S(strm1)
 	require.Nil(t, err)
-	err = Instance().RegisterC2SResource(strm2)
+	err = Instance().BindC2S(strm2)
 	require.Nil(t, err)
-	err = Instance().RegisterC2SResource(strm3)
+	err = Instance().BindC2S(strm3)
 	require.Nil(t, err)
-	err = Instance().RegisterC2SResource(strm4)
+	err = Instance().BindC2S(strm4)
 	require.Nil(t, err)
-	err = Instance().RegisterC2SResource(strm5)
+	err = Instance().BindC2S(strm5)
 	require.Nil(t, err)
 
 	strms := Instance().StreamsMatchingJID(j1.ToBareJID())
@@ -119,8 +119,8 @@ func TestC2SManager_Routing(t *testing.T) {
 
 	Instance().RegisterC2S(stm1)
 	Instance().RegisterC2S(stm2)
-	Instance().RegisterC2SResource(stm1)
-	Instance().RegisterC2SResource(stm2)
+	Instance().BindC2S(stm1)
+	Instance().BindC2S(stm2)
 
 	iqID := uuid.New()
 	iq := xml.NewIQType(iqID, xml.SetType)
@@ -140,11 +140,11 @@ func TestC2SManager_Routing(t *testing.T) {
 
 	stm4 := stream.NewMockC2S(uuid.New(), j4)
 	Instance().RegisterC2S(stm4)
-	Instance().RegisterC2SResource(stm4)
+	Instance().BindC2S(stm4)
 	require.Equal(t, ErrResourceNotFound, Instance().Route(iq))
 
 	Instance().RegisterC2S(stm3)
-	Instance().RegisterC2SResource(stm3)
+	Instance().BindC2S(stm3)
 	require.Nil(t, Instance().Route(iq))
 	elem := stm3.FetchElement()
 	require.Equal(t, iqID, elem.ID())
@@ -205,10 +205,10 @@ func TestC2SManager_StreamsMatching(t *testing.T) {
 	Instance().RegisterC2S(stm2)
 	Instance().RegisterC2S(stm3)
 	Instance().RegisterC2S(stm4)
-	Instance().RegisterC2SResource(stm1)
-	Instance().RegisterC2SResource(stm2)
-	Instance().RegisterC2SResource(stm3)
-	Instance().RegisterC2SResource(stm4)
+	Instance().BindC2S(stm1)
+	Instance().BindC2S(stm2)
+	Instance().BindC2S(stm3)
+	Instance().BindC2S(stm4)
 
 	j, _ := xml.NewJIDString("ortuman@jackal.im/garden", true)
 	require.Equal(t, 1, len(Instance().StreamsMatchingJID(j)))
@@ -239,8 +239,8 @@ func TestC2SManager_BlockedJID(t *testing.T) {
 
 	Instance().RegisterC2S(stm1)
 	Instance().RegisterC2S(stm2)
-	Instance().RegisterC2SResource(stm1)
-	Instance().RegisterC2SResource(stm2)
+	Instance().BindC2S(stm1)
+	Instance().BindC2S(stm2)
 
 	// node + domain + resource
 	bl1 := []model.BlockListItem{{

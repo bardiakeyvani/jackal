@@ -587,8 +587,8 @@ func tUtilRosterInitializeRoster() (*stream.MockC2S, *stream.MockC2S) {
 	// register streams...
 	router.Instance().RegisterC2S(stm1)
 	router.Instance().RegisterC2S(stm2)
-	router.Instance().RegisterC2SResource(stm1)
-	router.Instance().RegisterC2SResource(stm2)
+	router.Instance().BindC2S(stm1)
+	router.Instance().BindC2S(stm2)
 
 	return stm1, stm2
 }
