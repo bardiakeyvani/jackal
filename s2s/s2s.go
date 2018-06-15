@@ -16,6 +16,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+const streamMailboxSize = 64
+
+const (
+	tlsNamespace      = "urn:ietf:params:xml:ns:xmpp-tls"
+	saslNamespace     = "urn:ietf:params:xml:ns:xmpp-sasl"
+	dialbackNamespace = "urn:xmpp:features:dialback"
+)
+
 var (
 	instMu      sync.RWMutex
 	config      *Config
@@ -57,11 +65,9 @@ func NewDialer() (*Dialer, error) {
 		return nil, errors.New("s2s not enabled")
 	}
 	return &Dialer{
-		dbSecret:    config.DialbackSecret,
-		localDomain: config.LocalDomain,
-		timeout:     config.DialTimeout,
-		keepAlive:   config.Transport.KeepAlive,
-		cert:        config.Certificate,
+		dbSecret:  config.DialbackSecret,
+		timeout:   config.DialTimeout,
+		keepAlive: config.Transport.KeepAlive,
 	}, nil
 }
 

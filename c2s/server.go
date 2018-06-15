@@ -14,20 +14,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sync"
+	"crypto/tls"
 
 	"github.com/gorilla/websocket"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
-)
-
-var (
-	mu          sync.RWMutex
-	debugSrv    *http.Server
-	servers     = make(map[string]*server)
-	shutdownCh  = make(chan chan struct{})
-	initialized bool
 )
 
 var listenerProvider = net.Listen
@@ -41,60 +33,7 @@ type server struct {
 	listening  uint32
 }
 
-// Initialize spawns a connection listener for every server configuration.
-func Initialize(srvConfigurations []Config) {
-	mu.Lock()
-	if initialized {
-		mu.Unlock()
-		return
-	}
-	// initialize all servers
-	for i := 0; i < len(srvConfigurations); i++ {
-		if _, err := initializeServer(&srvConfigurations[i]); err != nil {
-			log.Fatalf("%v", err)
-		}
-	}
-	initialized = true
-	mu.Unlock()
-
-	// wait until shutdown...
-	doneCh := <-shutdownCh
-
-	mu.Lock()
-	// close all servers
-	if debugSrv != nil {
-		debugSrv.Close()
-		debugSrv = nil
-	}
-	for k, srv := range servers {
-		if err := srv.shutdown(); err != nil {
-			log.Error(err)
-		}
-		delete(servers, k)
-	}
-	close(doneCh)
-	initialized = false
-	mu.Unlock()
-}
-
-// Shutdown closes every server listener.
-// This method should be used only for testing purposes.
-func Shutdown() {
-	ch := make(chan struct{})
-	shutdownCh <- ch
-	<-ch
-}
-
-func initializeServer(cfg *Config) (*server, error) {
-	srv := &server{cfg: cfg}
-	servers[cfg.ID] = srv
-	go srv.start()
-	return srv, nil
-}
-
 func (s *server) start() {
-	router.Instance().RegisterLocalDomain(s.cfg.Domain)
-
 	bindAddr := s.cfg.Transport.BindAddress
 	port := s.cfg.Transport.Port
 	address := bindAddr + ":" + strconv.Itoa(port)
@@ -136,7 +75,7 @@ func (s *server) listenSocketConn(address string) error {
 func (s *server) listenWebSocketConn(address string) error {
 	http.HandleFunc(s.cfg.Transport.URLPath, s.websocketUpgrade)
 
-	s.wsSrv = &http.Server{TLSConfig: s.cfg.TLS}
+	s.wsSrv = &http.Server{TLSConfig: &tls.Config{Certificates: router.Instance().GetCertificates()}}
 	s.wsUpgrader = &websocket.Upgrader{
 		Subprotocols: []string{"xmpp"},
 		CheckOrigin:  func(r *http.Request) bool { return r.Header.Get("Sec-WebSocket-Protocol") == "xmpp" },
@@ -173,18 +112,16 @@ func (s *server) shutdown() error {
 }
 
 func (s *server) startStream(tr transport.Transport) {
-	cfg := &InConfig{
-		Domain:           s.cfg.Domain,
-		TLS:              s.cfg.TLS,
-		Transport:        tr,
-		ResourceConflict: s.cfg.ResourceConflict,
-		ConnectTimeout:   time.Duration(s.cfg.ConnectTimeout) * time.Second,
-		MaxStanzaSize:    s.cfg.MaxStanzaSize,
-		SASL:             s.cfg.SASL,
-		Compression:      s.cfg.Compression,
-		Modules:          s.cfg.Modules,
+	cfg := &inConfig{
+		transport:        tr,
+		resourceConflict: s.cfg.ResourceConflict,
+		connectTimeout:   time.Duration(s.cfg.ConnectTimeout) * time.Second,
+		maxStanzaSize:    s.cfg.MaxStanzaSize,
+		sasl:             s.cfg.SASL,
+		compression:      s.cfg.Compression,
+		modules:          s.cfg.Modules,
 	}
-	stm := New(s.nextID(), cfg)
+	stm := newInStream(s.nextID(), cfg)
 	if err := router.Instance().RegisterC2S(stm); err != nil {
 		log.Error(err)
 	}

@@ -7,6 +7,7 @@ package c2s
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"sync/atomic"
 	"time"
@@ -36,8 +37,6 @@ import (
 	"github.com/pborman/uuid"
 )
 
-const streamMailboxSize = 64
-
 const (
 	connecting uint32 = iota
 	connected
@@ -45,16 +44,6 @@ const (
 	authenticated
 	sessionStarted
 	disconnected
-)
-
-const (
-	streamNamespace           = "http://etherx.jabber.org/streams"
-	tlsNamespace              = "urn:ietf:params:xml:ns:xmpp-tls"
-	compressProtocolNamespace = "http://jabber.org/protocol/compress"
-	bindNamespace             = "urn:ietf:params:xml:ns:xmpp-bind"
-	sessionNamespace          = "urn:ietf:params:xml:ns:xmpp-session"
-	saslNamespace             = "urn:ietf:params:xml:ns:xmpp-sasl"
-	blockedErrorNamespace     = "urn:xmpp:blocking:errors"
 )
 
 // stream context keys
@@ -91,7 +80,7 @@ type modules struct {
 }
 
 type inStream struct {
-	cfg            *InConfig
+	cfg            *inConfig
 	sess           *session.Session
 	id             string
 	connectTm      *time.Timer
@@ -104,8 +93,7 @@ type inStream struct {
 	doneCh         chan<- struct{}
 }
 
-// New returns a new c2s stream instance.
-func New(id string, cfg *InConfig) stream.C2S {
+func newInStream(id string, cfg *inConfig) stream.C2S {
 	ctx, doneCh := stream.NewContext()
 	s := &inStream{
 		cfg:     cfg,
@@ -115,11 +103,10 @@ func New(id string, cfg *InConfig) stream.C2S {
 		doneCh:  doneCh,
 	}
 	// initialize stream context
-	secured := !(cfg.Transport.Type() == transport.Socket)
+	secured := !(cfg.transport.Type() == transport.Socket)
 	s.ctx.SetBool(secured, securedCtxKey)
-	s.ctx.SetString(s.cfg.Domain, domainCtxKey)
 
-	j, _ := xml.NewJID("", s.cfg.Domain, "", true)
+	j, _ := xml.NewJID("", "", "", true)
 	s.ctx.SetObject(j, jidCtxKey)
 
 	// initialize authenticators
@@ -131,8 +118,8 @@ func New(id string, cfg *InConfig) stream.C2S {
 	// start c2s session
 	s.restartSession()
 
-	if cfg.ConnectTimeout > 0 {
-		s.connectTm = time.AfterFunc(time.Duration(cfg.ConnectTimeout)*time.Second, s.connectTimeout)
+	if cfg.connectTimeout > 0 {
+		s.connectTm = time.AfterFunc(cfg.connectTimeout, s.connectTimeout)
 	}
 	go s.loop()
 	go s.doRead() // start reading...
@@ -214,9 +201,9 @@ func (s *inStream) Disconnect(err error) {
 }
 
 func (s *inStream) initializeAuthenticators() {
-	tr := s.cfg.Transport
+	tr := s.cfg.transport
 	var authenticators []auth.Authenticator
-	for _, a := range s.cfg.SASL {
+	for _, a := range s.cfg.sasl {
 		switch a {
 		case "plain":
 			authenticators = append(authenticators, auth.NewPlain(s))
@@ -245,62 +232,62 @@ func (s *inStream) initializeModules() {
 	mods.all = append(mods.all, mods.discoInfo)
 
 	// Roster (https://xmpp.org/rfcs/rfc3921.html#roster)
-	mods.roster = roster.New(&s.cfg.Modules.Roster, s)
+	mods.roster = roster.New(&s.cfg.modules.Roster, s)
 	mods.iqHandlers = append(mods.iqHandlers, mods.roster)
 	mods.all = append(mods.all, mods.roster)
 
 	// XEP-0012: Last Activity (https://xmpp.org/extensions/xep-0012.html)
-	if _, ok := s.cfg.Modules.Enabled["last_activity"]; ok {
+	if _, ok := s.cfg.modules.Enabled["last_activity"]; ok {
 		mods.lastActivity = xep0012.New(s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.lastActivity)
 		mods.all = append(mods.all, mods.lastActivity)
 	}
 
 	// XEP-0049: Private XML Storage (https://xmpp.org/extensions/xep-0049.html)
-	if _, ok := s.cfg.Modules.Enabled["private"]; ok {
+	if _, ok := s.cfg.modules.Enabled["private"]; ok {
 		mods.private = xep0049.New(s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.private)
 		mods.all = append(mods.all, mods.private)
 	}
 
 	// XEP-0054: vcard-temp (https://xmpp.org/extensions/xep-0054.html)
-	if _, ok := s.cfg.Modules.Enabled["vcard"]; ok {
+	if _, ok := s.cfg.modules.Enabled["vcard"]; ok {
 		mods.vCard = xep0054.New(s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.vCard)
 		mods.all = append(mods.all, mods.vCard)
 	}
 
 	// XEP-0077: In-band registration (https://xmpp.org/extensions/xep-0077.html)
-	if _, ok := s.cfg.Modules.Enabled["registration"]; ok {
-		mods.register = xep0077.New(&s.cfg.Modules.Registration, s)
+	if _, ok := s.cfg.modules.Enabled["registration"]; ok {
+		mods.register = xep0077.New(&s.cfg.modules.Registration, s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.register)
 		mods.all = append(mods.all, mods.register)
 	}
 
 	// XEP-0092: Software Version (https://xmpp.org/extensions/xep-0092.html)
-	if _, ok := s.cfg.Modules.Enabled["version"]; ok {
-		mods.version = xep0092.New(&s.cfg.Modules.Version, s)
+	if _, ok := s.cfg.modules.Enabled["version"]; ok {
+		mods.version = xep0092.New(&s.cfg.modules.Version, s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.version)
 		mods.all = append(mods.all, mods.version)
 	}
 
 	// XEP-0191: Blocking Command (https://xmpp.org/extensions/xep-0191.html)
-	if _, ok := s.cfg.Modules.Enabled["blocking_command"]; ok {
+	if _, ok := s.cfg.modules.Enabled["blocking_command"]; ok {
 		mods.blockingCmd = xep0191.New(s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.blockingCmd)
 		mods.all = append(mods.all, mods.blockingCmd)
 	}
 
 	// XEP-0199: XMPP Ping (https://xmpp.org/extensions/xep-0199.html)
-	if _, ok := s.cfg.Modules.Enabled["ping"]; ok {
-		mods.ping = xep0199.New(&s.cfg.Modules.Ping, s)
+	if _, ok := s.cfg.modules.Enabled["ping"]; ok {
+		mods.ping = xep0199.New(&s.cfg.modules.Ping, s)
 		mods.iqHandlers = append(mods.iqHandlers, mods.ping)
 		mods.all = append(mods.all, mods.ping)
 	}
 
 	// XEP-0160: Offline message storage (https://xmpp.org/extensions/xep-0160.html)
-	if _, ok := s.cfg.Modules.Enabled["offline"]; ok {
-		mods.offline = offline.New(&s.cfg.Modules.Offline, s)
+	if _, ok := s.cfg.modules.Enabled["offline"]; ok {
+		mods.offline = offline.New(&s.cfg.modules.Offline, s)
 		mods.all = append(mods.all, mods.offline)
 	}
 	s.mods = mods
@@ -332,7 +319,11 @@ func (s *inStream) handleConnecting(elem xml.XElement) {
 		s.connectTm = nil
 	}
 	// assign stream domain
-	s.ctx.SetString(elem.To(), domainCtxKey)
+	domain := elem.To()
+	s.ctx.SetString(domain, domainCtxKey)
+
+	j, _ := xml.NewJID("", domain, "", true)
+	s.ctx.SetObject(j, jidCtxKey)
 
 	// open stream session
 	s.sess.Open()
@@ -354,7 +345,7 @@ func (s *inStream) handleConnecting(elem xml.XElement) {
 func (s *inStream) unauthenticatedFeatures() []xml.XElement {
 	var features []xml.XElement
 
-	isSocketTr := s.cfg.Transport.Type() == transport.Socket
+	isSocketTr := s.cfg.transport.Type() == transport.Socket
 
 	if isSocketTr && !s.IsSecured() {
 		startTLS := xml.NewElementName("starttls")
@@ -390,10 +381,10 @@ func (s *inStream) unauthenticatedFeatures() []xml.XElement {
 func (s *inStream) authenticatedFeatures() []xml.XElement {
 	var features []xml.XElement
 
-	isSocketTr := s.cfg.Transport.Type() == transport.Socket
+	isSocketTr := s.cfg.transport.Type() == transport.Socket
 
 	// attach compression feature
-	compressionAvailable := isSocketTr && s.cfg.Compression.Level != compress.NoCompression
+	compressionAvailable := isSocketTr && s.cfg.compression.Level != compress.NoCompression
 
 	if !s.IsCompressed() && compressionAvailable {
 		compression := xml.NewElementNamespace("compression", "http://jabber.org/features/compress")
@@ -512,10 +503,9 @@ func (s *inStream) proceedStartTLS() {
 
 	s.writeElement(xml.NewElementNamespace("proceed", tlsNamespace))
 
-	// don't do anything in case no TLS configuration has been provided (useful for testing purposes).
-	if tlsConfig := s.cfg.TLS; tlsConfig != nil {
-		s.cfg.Transport.StartTLS(tlsConfig, false)
-	}
+	s.cfg.transport.StartTLS(&tls.Config{
+		Certificates: router.Instance().GetCertificates(),
+	}, false)
 	log.Infof("secured stream... id: %s", s.id)
 
 	s.restartSession()
@@ -543,7 +533,7 @@ func (s *inStream) compress(elem xml.XElement) {
 
 	s.writeElement(xml.NewElementNamespace("compressed", compressProtocolNamespace))
 
-	s.cfg.Transport.EnableCompression(s.cfg.Compression.Level)
+	s.cfg.transport.EnableCompression(s.cfg.compression.Level)
 
 	log.Infof("compressed stream... id: %s", s.id)
 
@@ -630,7 +620,7 @@ func (s *inStream) bindResource(iq *xml.IQ) {
 		}
 	}
 	if stm != nil {
-		switch s.cfg.ResourceConflict {
+		switch s.cfg.resourceConflict {
 		case Override:
 			// override the resource with a server-generated resourcepart...
 			h := sha256.New()
@@ -706,7 +696,7 @@ func (s *inStream) processStanza(stanza xml.Stanza) {
 		s.writeElement(resp)
 		return
 	}
-	if !router.Instance().IsLocalDomain(toJID.Domain()) {
+	if !router.Instance().IsLocalHost(toJID.Domain()) {
 		router.Instance().Route(stanza)
 		return
 	}
@@ -919,7 +909,7 @@ func (s *inStream) disconnectClosingSession(closeSession, unregister bool) {
 		log.Error(err)
 	}
 	s.setState(disconnected)
-	s.cfg.Transport.Close()
+	s.cfg.transport.Close()
 }
 
 func (s *inStream) updateLogoutInfo() error {
@@ -938,7 +928,7 @@ func (s *inStream) updateLogoutInfo() error {
 }
 
 func (s *inStream) isBlockedJID(jid *xml.JID) bool {
-	if jid.IsServer() && router.Instance().IsLocalDomain(jid.Domain()) {
+	if jid.IsServer() && router.Instance().IsLocalHost(jid.Domain()) {
 		return false
 	}
 	return router.Instance().IsBlockedJID(jid, s.Username())
@@ -947,8 +937,8 @@ func (s *inStream) isBlockedJID(jid *xml.JID) bool {
 func (s *inStream) restartSession() {
 	s.sess = session.New(&session.Config{
 		JID:           s.JID(),
-		Transport:     s.cfg.Transport,
-		MaxStanzaSize: s.cfg.MaxStanzaSize,
+		Transport:     s.cfg.transport,
+		MaxStanzaSize: s.cfg.maxStanzaSize,
 	})
 	s.setState(connecting)
 }

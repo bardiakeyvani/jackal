@@ -16,6 +16,7 @@ import (
 
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
+	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/xml"
 	"github.com/pborman/uuid"
@@ -311,7 +312,7 @@ func (s *Session) validateStreamElement(elem xml.XElement) *Error {
 		}
 	}
 	to := elem.To()
-	if len(to) > 0 && to != s.jid().Domain() {
+	if len(to) > 0 && !router.Instance().IsLocalHost(to) {
 		return &Error{UnderlyingErr: streamerror.ErrHostUnknown}
 	}
 	if elem.Version() != "1.0" {

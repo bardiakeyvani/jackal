@@ -6,6 +6,7 @@
 package router
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,8 +14,11 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/storage"
 	"github.com/ortuman/jackal/stream"
+	"github.com/ortuman/jackal/util"
 	"github.com/ortuman/jackal/xml"
 )
+
+const defaultDomain = "localhost"
 
 var (
 	// ErrNotExistingAccount will be returned by Route method
@@ -37,7 +41,7 @@ var (
 // Router manages the sessions associated with an account.
 type Router struct {
 	mu           sync.RWMutex
-	domains      map[string]struct{}
+	hosts        map[string]tls.Certificate
 	blockListsMu sync.RWMutex
 	blockLists   map[string][]*xml.JID
 	c2sRouter    *c2sRouter
@@ -52,17 +56,28 @@ var (
 )
 
 // Initialize initializes the router manager.
-func Initialize() {
+func Initialize(hosts []HostConfig) {
 	instMu.Lock()
 	defer instMu.Unlock()
 	if initialized {
 		return
 	}
 	inst = &Router{
-		domains:    make(map[string]struct{}),
+		hosts:      make(map[string]tls.Certificate),
 		blockLists: make(map[string][]*xml.JID),
 		c2sRouter:  newC2SRouter(),
 		s2sRouter:  newS2SRouter(),
+	}
+	if len(hosts) > 0 {
+		for _, h := range hosts {
+			inst.hosts[h.Name] = h.Certificate
+		}
+	} else {
+		cer, err := util.LoadCertificate("", "", defaultDomain)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		inst.hosts[defaultDomain] = cer
 	}
 	initialized = true
 }
@@ -90,25 +105,32 @@ func Instance() *Router {
 	return inst
 }
 
-// RegisterLocalDomain registers a new local domain.
-func (r *Router) RegisterLocalDomain(domain string) {
-	r.mu.Lock()
-	r.domains[domain] = struct{}{}
-	r.mu.Unlock()
-}
-
-// IsLocalDomain returns true if domain is a local server domain.
-func (r *Router) IsLocalDomain(domain string) bool {
+// IsLocalHost returns true if domain is a local server domain.
+func (r *Router) IsLocalHost(domain string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	_, ok := r.domains[domain]
-	return ok
+	if len(r.hosts) > 0 {
+		_, ok := r.hosts[domain]
+		return ok
+	} else {
+		return domain == defaultDomain
+	}
+}
+
+func (r *Router) GetCertificates() []tls.Certificate {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var certs []tls.Certificate
+	for _, cer := range r.hosts {
+		certs = append(certs, cer)
+	}
+	return certs
 }
 
 // RegisterC2S registers the specified c2s stream.
 // An error will be returned in case the stream has been previously registered.
 func (r *Router) RegisterC2S(stm stream.C2S) error {
-	if !r.IsLocalDomain(stm.Domain()) {
+	if !r.IsLocalHost(stm.Domain()) {
 		return fmt.Errorf("invalid domain: %s", stm.Domain())
 	}
 	return r.c2sRouter.registerStream(stm)
@@ -121,7 +143,7 @@ func (r *Router) UnregisterC2S(stm stream.C2S) error {
 	return r.c2sRouter.unregisterStream(stm)
 }
 
-// BindC2S marks a previously registered c2s stream as authenticated.
+// BindC2S marks a previously registered c2s stream as binded.
 // An error will be returned in case no assigned resource is found.
 func (r *Router) BindC2S(stm stream.C2S) error {
 	if len(stm.Resource()) == 0 {
@@ -130,12 +152,16 @@ func (r *Router) BindC2S(stm stream.C2S) error {
 	return r.c2sRouter.bindStream(stm)
 }
 
-func (r *Router) RegisterS2S(stm stream.S2S) error {
-	return nil
+func (r *Router) RegisterS2SIn(stm stream.S2SIn) error {
+	return r.s2sRouter.registerIn(stm)
 }
 
-func (r *Router) UnregisterS2S(stm stream.S2S) error {
-	return nil
+func (r *Router) UnregisterS2SOut(stm stream.S2SOut) error {
+	return r.s2sRouter.unregisterOut(stm)
+}
+
+func (r *Router) UnregisterS2SIn(stm stream.S2SIn) error {
+	return r.s2sRouter.unregisterIn(stm)
 }
 
 // IsBlockedJID returns whether or not the passed jid matches any
@@ -174,7 +200,7 @@ func (r *Router) MustRoute(elem xml.Stanza) error {
 
 // StreamsMatchingJID returns all available c2s streams matching a given JID.
 func (r *Router) StreamsMatchingJID(jid *xml.JID) []stream.C2S {
-	if !r.IsLocalDomain(jid.Domain()) {
+	if !r.IsLocalHost(jid.Domain()) {
 		return nil
 	}
 	return r.c2sRouter.streamsMatchingJID(jid)
@@ -187,7 +213,7 @@ func (r *Router) route(elem xml.Stanza, ignoreBlocking bool) error {
 			return ErrBlockedJID
 		}
 	}
-	if !r.IsLocalDomain(toJID.Domain()) {
+	if !r.IsLocalHost(toJID.Domain()) {
 		return nil
 	}
 	return r.c2sRouter.route(elem, ignoreBlocking)
@@ -228,5 +254,6 @@ func (r *Router) jidMatchesBlockedJID(jid, blockedJID *xml.JID) bool {
 }
 
 func (r *Router) shutdown() {
+	r.s2sRouter.shutdown()
 	r.c2sRouter.shutdown()
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ortuman/jackal/transport"
-	"github.com/ortuman/jackal/util"
 	"github.com/pkg/errors"
 )
 
@@ -63,8 +62,6 @@ type Config struct {
 	DialTimeout    time.Duration
 	DialbackSecret string
 	MaxStanzaSize  int
-	LocalDomain    string
-	Certificate    tls.Certificate
 	Transport      TransportConfig
 }
 
@@ -96,15 +93,6 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if c.DialTimeout == 0 {
 		c.DialTimeout = defaultDialTimeout
 	}
-	c.LocalDomain = p.LocalDomain
-	if !c.Disabled && len(c.LocalDomain) == 0 {
-		return errors.New("s2s.Config: must specify a local domain")
-	}
-	cer, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, p.LocalDomain)
-	if err != nil {
-		return err
-	}
-	c.Certificate = cer
 	c.Transport = p.Transport
 	c.MaxStanzaSize = p.MaxStanzaSize
 	if c.MaxStanzaSize == 0 {
@@ -113,7 +101,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type outConfig struct {
+type streamConfig struct {
 	dbSecret      string
 	localDomain   string
 	remoteDomain  string

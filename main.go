@@ -89,7 +89,7 @@ func main() {
 	// initialize subsystems
 	log.Initialize(&cfg.Logger)
 
-	router.Initialize()
+	router.Initialize(cfg.Hosts)
 
 	storage.Initialize(&cfg.Storage)
 
@@ -128,7 +128,7 @@ func initDebugServer(port int) {
 	debugSrv.Serve(ln)
 }
 
-var o stream.S2S
+var o stream.S2SOut
 
 func testS2S() {
 	d, err := s2s.NewDialer()

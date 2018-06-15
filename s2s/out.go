@@ -15,27 +15,17 @@ import (
 	"github.com/ortuman/jackal/xml"
 )
 
-const streamMailboxSize = 64
-
 const (
-	tlsNamespace      = "urn:ietf:params:xml:ns:xmpp-tls"
-	saslNamespace     = "urn:ietf:params:xml:ns:xmpp-sasl"
-	dialbackNamespace = "urn:xmpp:features:dialback"
-)
-
-const (
-	connecting uint32 = iota
-	connected
-	securing
-	authenticating
-	verifying
-	started
-	disconnected
+	outConnecting uint32 = iota
+	outConnected
+	outSecuring
+	outAuthenticating
+	outVerifying
+	outDisconnected
 )
 
 type outStream struct {
-	id            string
-	cfg           *outConfig
+	cfg           *streamConfig
 	state         uint32
 	sess          *session.Session
 	secured       bool
@@ -43,9 +33,8 @@ type outStream struct {
 	actorCh       chan func()
 }
 
-func newOut(id string, cfg *outConfig) *outStream {
+func newOutStream(cfg *streamConfig) *outStream {
 	s := &outStream{
-		id:      id,
 		cfg:     cfg,
 		actorCh: make(chan func(), streamMailboxSize),
 	}
@@ -59,14 +48,12 @@ func newOut(id string, cfg *outConfig) *outStream {
 	return s
 }
 
-func (s *outStream) IsInitiating() bool {
-	return true
+func (s *outStream) LocalDomain() string {
+	return s.cfg.localDomain
 }
 
-func (s *outStream) DomainPair() (local string, remote string) {
-	local = s.cfg.localDomain
-	remote = s.cfg.remoteDomain
-	return
+func (s *outStream) RemoteDomain() string {
+	return s.cfg.remoteDomain
 }
 
 func (s *outStream) SendElement(elem xml.XElement) {
@@ -87,32 +74,43 @@ func (s *outStream) loop() {
 	for {
 		f := <-s.actorCh
 		f()
-		if s.getState() == disconnected {
+		if s.getState() == outDisconnected {
 			return
 		}
 	}
 }
 
 // runs on its own goroutine
+func (s *outStream) doRead() {
+	if elem, sErr := s.sess.Receive(); sErr == nil {
+		s.actorCh <- func() {
+			s.readElement(elem)
+		}
+	} else {
+		if s.getState() == outDisconnected {
+			return // already disconnected...
+		}
+		s.handleSessionError(sErr)
+	}
+}
+
 func (s *outStream) handleElement(elem xml.XElement) {
 	switch s.getState() {
-	case connecting:
+	case outConnecting:
 		s.handleConnecting(elem)
-	case connected:
+	case outConnected:
 		s.handleConnected(elem)
-	case securing:
+	case outSecuring:
 		s.handleSecuring(elem)
-	case authenticating:
+	case outAuthenticating:
 		s.handleAuthenticating(elem)
-	case verifying:
+	case outVerifying:
 		s.handleVerifying(elem)
-	case started:
-		s.handleStarted(elem)
 	}
 }
 
 func (s *outStream) handleConnecting(elem xml.XElement) {
-	s.setState(connected)
+	s.setState(outConnected)
 }
 
 func (s *outStream) handleConnected(elem xml.XElement) {
@@ -121,19 +119,39 @@ func (s *outStream) handleConnected(elem xml.XElement) {
 		return
 	}
 	if !s.secured {
-		if !s.hasStartTLSFeature(elem) {
+		if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
 			// unsecured channels not supported
 			s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
 			return
 		}
 		s.writeElement(xml.NewElementNamespace("starttls", tlsNamespace))
-		s.setState(securing)
+		s.setState(outSecuring)
 
 	} else {
-		if s.hasExternalAuthFeature(elem) && !s.authenticated {
-			s.authenticate()
-		} else if s.hasDialbackFeature(elem) {
-			s.dialback()
+		var hasExternalAuth bool
+		if mechanisms := elem.Elements().ChildNamespace("mechanisms", saslNamespace); mechanisms != nil {
+			for _, m := range mechanisms.Elements().All() {
+				if m.Name() == "mechanism" && m.Text() == "EXTERNAL" {
+					hasExternalAuth = true
+					break
+				}
+			}
+		}
+		if hasExternalAuth && !s.authenticated {
+			auth := xml.NewElementNamespace("auth", saslNamespace)
+			auth.SetAttribute("mechanism", "EXTERNAL")
+			auth.SetText("=")
+			s.writeElement(auth)
+			s.setState(outAuthenticating)
+
+		} else if elem.Elements().ChildrenNamespace("dialback", dialbackNamespace) != nil {
+			db := xml.NewElementName("db:result")
+			db.SetFrom(s.cfg.localDomain)
+			db.SetTo(s.cfg.remoteDomain)
+			db.SetText(dialbackKey(s.cfg.localDomain, s.cfg.remoteDomain, s.sess.ID(), s.cfg.dbSecret))
+			s.writeElement(db)
+			s.setState(outVerifying)
+
 		} else {
 			// do not allow remote connection
 			s.disconnectWithStreamError(streamerror.ErrRemoteConnectionFailed)
@@ -179,26 +197,6 @@ func (s *outStream) handleAuthenticating(elem xml.XElement) {
 func (s *outStream) handleVerifying(elem xml.XElement) {
 }
 
-func (s *outStream) handleStarted(elem xml.XElement) {
-}
-
-func (s *outStream) disconnect(err error) {
-	if s.getState() == disconnected {
-		return
-	}
-	switch err {
-	case nil:
-		s.disconnectClosingStream(false, true)
-	default:
-		if stmErr, ok := err.(*streamerror.Error); ok {
-			s.disconnectWithStreamError(stmErr)
-		} else {
-			log.Error(err)
-			s.disconnectClosingStream(false, true)
-		}
-	}
-}
-
 func (s *outStream) writeElement(elem xml.XElement) {
 	s.sess.Send(elem)
 }
@@ -207,41 +205,8 @@ func (s *outStream) readElement(elem xml.XElement) {
 	if elem != nil {
 		s.handleElement(elem)
 	}
-	if s.getState() != disconnected {
+	if s.getState() != outDisconnected {
 		go s.doRead()
-	}
-}
-
-func (s *outStream) disconnectWithStreamError(err *streamerror.Error) {
-	s.writeElement(err.Element())
-
-	unregister := err != streamerror.ErrSystemShutdown
-	s.disconnectClosingStream(true, unregister)
-}
-
-func (s *outStream) disconnectClosingStream(closeStream bool, unregister bool) {
-	if closeStream {
-		s.sess.Close()
-	}
-	if unregister {
-		if err := router.Instance().UnregisterS2S(s); err != nil {
-			log.Error(err)
-		}
-	}
-	s.setState(disconnected)
-	s.cfg.transport.Close()
-}
-
-func (s *outStream) doRead() {
-	if elem, sErr := s.sess.Receive(); sErr == nil {
-		s.actorCh <- func() {
-			s.readElement(elem)
-		}
-	} else {
-		if s.getState() == disconnected {
-			return // already disconnected...
-		}
-		s.handleSessionError(sErr)
 	}
 }
 
@@ -259,41 +224,41 @@ func (s *outStream) handleSessionError(sessErr *session.Error) {
 	}
 }
 
-func (s *outStream) authenticate() {
-	auth := xml.NewElementNamespace("auth", saslNamespace)
-	auth.SetAttribute("mechanism", "EXTERNAL")
-	auth.SetText("=")
-	s.writeElement(auth)
-	s.setState(authenticating)
-}
-
-func (s *outStream) dialback() {
-	db := xml.NewElementName("db:result")
-	db.SetFrom(s.cfg.localDomain)
-	db.SetTo(s.cfg.remoteDomain)
-	db.SetText(dialbackKey(s.cfg.localDomain, s.cfg.remoteDomain, s.sess.ID(), s.cfg.dbSecret))
-	s.writeElement(db)
-	s.setState(verifying)
-}
-
-func (s *outStream) hasStartTLSFeature(features xml.XElement) bool {
-	return features.Elements().ChildrenNamespace("starttls", tlsNamespace) != nil
-}
-
-func (s *outStream) hasExternalAuthFeature(features xml.XElement) bool {
-	ms := features.Elements().ChildNamespace("mechanisms", saslNamespace)
-	if ms != nil {
-		for _, m := range ms.Elements().All() {
-			if m.Name() == "mechanism" && m.Text() == "EXTERNAL" {
-				return true
-			}
+func (s *outStream) disconnect(err error) {
+	if s.getState() == outDisconnected {
+		return
+	}
+	switch err {
+	case nil:
+		s.disconnectClosingSession(false, true)
+	default:
+		if stmErr, ok := err.(*streamerror.Error); ok {
+			s.disconnectWithStreamError(stmErr)
+		} else {
+			log.Error(err)
+			s.disconnectClosingSession(false, true)
 		}
 	}
-	return false
 }
 
-func (s *outStream) hasDialbackFeature(features xml.XElement) bool {
-	return features.Elements().ChildrenNamespace("dialback", dialbackNamespace) != nil
+func (s *outStream) disconnectWithStreamError(err *streamerror.Error) {
+	s.writeElement(err.Element())
+
+	unregister := err != streamerror.ErrSystemShutdown
+	s.disconnectClosingSession(true, unregister)
+}
+
+func (s *outStream) disconnectClosingSession(closeSession bool, unregister bool) {
+	if closeSession {
+		s.sess.Close()
+	}
+	if unregister {
+		if err := router.Instance().UnregisterS2SOut(s); err != nil {
+			log.Error(err)
+		}
+	}
+	s.setState(outDisconnected)
+	s.cfg.transport.Close()
 }
 
 func (s *outStream) restartSession() {
@@ -306,7 +271,7 @@ func (s *outStream) restartSession() {
 		IsServer:      true,
 		IsInitiating:  true,
 	})
-	s.setState(connecting)
+	s.setState(outConnecting)
 }
 
 func (s *outStream) setState(state uint32) {

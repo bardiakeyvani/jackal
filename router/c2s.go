@@ -165,6 +165,4 @@ func (r *c2sRouter) shutdown() {
 	for _, stm := range r.streams {
 		stm.Disconnect(streamerror.ErrSystemShutdown)
 	}
-	r.streams = make(map[string]stream.C2S)
-	r.bindedStreams = make(map[string][]stream.C2S)
 }

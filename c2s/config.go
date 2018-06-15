@@ -6,7 +6,6 @@
 package c2s
 
 import (
-	"crypto/tls"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"github.com/ortuman/jackal/module/xep0199"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/transport/compress"
-	"github.com/ortuman/jackal/util"
 )
 
 const (
@@ -177,8 +175,6 @@ type TLSConfig struct {
 // Config represents C2S server configuration.
 type Config struct {
 	ID               string
-	Domain           string
-	TLS              *tls.Config
 	ConnectTimeout   int
 	MaxStanzaSize    int
 	ResourceConflict ResourceConflictPolicy
@@ -208,16 +204,6 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	cfg.ID = p.ID
-	cfg.Domain = p.Domain
-	if len(cfg.Domain) == 0 {
-		cfg.Domain = defaultDomain
-	}
-	cer, err := util.LoadCertificate(p.TLS.PrivKeyFile, p.TLS.CertFile, cfg.Domain)
-	if err != nil {
-		return err
-	}
-	cfg.TLS = &tls.Config{ServerName: cfg.Domain, Certificates: []tls.Certificate{cer}}
-
 	cfg.ConnectTimeout = p.ConnectTimeout
 	if cfg.ConnectTimeout == 0 {
 		cfg.ConnectTimeout = defaultTransportConnectTimeout
@@ -255,14 +241,12 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type InConfig struct {
-	Domain           string
-	TLS              *tls.Config
-	Transport        transport.Transport
-	ConnectTimeout   time.Duration
-	MaxStanzaSize    int
-	ResourceConflict ResourceConflictPolicy
-	SASL             []string
-	Compression      CompressConfig
-	Modules          ModulesConfig
+type inConfig struct {
+	transport        transport.Transport
+	connectTimeout   time.Duration
+	maxStanzaSize    int
+	resourceConflict ResourceConflictPolicy
+	sasl             []string
+	compression      CompressConfig
+	modules          ModulesConfig
 }

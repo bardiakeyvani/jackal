@@ -6,29 +6,27 @@
 package s2s
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
+	"crypto/tls"
+
+	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/transport"
 )
 
 type Dialer struct {
 	dbSecret      string
-	localDomain   string
-	cert          tls.Certificate
 	timeout       time.Duration
 	keepAlive     time.Duration
 	maxStanzaSize int
 	dialCnt       uint32
 }
 
-func (d *Dialer) Dial(domain string) (stream.S2S, error) {
+func (d *Dialer) Dial(domain string) (stream.S2SOut, error) {
 	_, addrs, err := net.LookupSRV("xmpp-server", "tcp", domain)
 
 	var target string
@@ -43,16 +41,15 @@ func (d *Dialer) Dial(domain string) (stream.S2S, error) {
 	}
 	tlsConfig := &tls.Config{
 		ServerName:   domain,
-		Certificates: []tls.Certificate{d.cert},
+		Certificates: router.Instance().GetCertificates(),
 	}
 	tr := transport.NewSocketTransport(conn, d.keepAlive)
-	cfg := &outConfig{
+	cfg := &streamConfig{
 		dbSecret:      d.dbSecret,
+		tls:           tlsConfig,
 		transport:     tr,
 		remoteDomain:  domain,
-		localDomain:   d.localDomain,
-		tls:           tlsConfig,
 		maxStanzaSize: d.maxStanzaSize,
 	}
-	return newOut(fmt.Sprintf("s2s_out:%d", atomic.AddUint32(&d.dialCnt, 1)), cfg), nil
+	return newOutStream(cfg), nil
 }

@@ -23,8 +23,8 @@ func TestC2SManager(t *testing.T) {
 
 	Instance().RegisterLocalDomain("jackal.im")
 
-	require.True(t, Instance().IsLocalDomain("jackal.im"))
-	require.False(t, Instance().IsLocalDomain("example.org"))
+	require.True(t, Instance().IsLocalHost("jackal.im"))
+	require.False(t, Instance().IsLocalHost("example.org"))
 
 	j1, _ := xml.NewJIDString("ortuman@jackal.im/balcony", false)
 	j2, _ := xml.NewJIDString("ortuman@jackal.im/garden", false)

@@ -319,7 +319,7 @@ func (r *Roster) removeItem(ri *model.RosterItem) error {
 		}
 	}
 
-	if router.Instance().IsLocalDomain(cntJID.Domain()) {
+	if router.Instance().IsLocalHost(cntJID.Domain()) {
 		cntRi, err := storage.Instance().FetchRosterItem(cntJID.Node(), usrJID.String())
 		if err != nil {
 			return err
@@ -424,7 +424,7 @@ func (r *Roster) processSubscribe(presence *xml.Presence) error {
 	p := xml.NewPresence(usrJID, cntJID, xml.SubscribeType)
 	p.AppendElements(presence.Elements().All())
 
-	if router.Instance().IsLocalDomain(cntJID.Domain()) {
+	if router.Instance().IsLocalHost(cntJID.Domain()) {
 		// archive roster approval notification
 		if err := r.insertOrUpdateNotification(cntJID.Node(), usrJID, p); err != nil {
 			return err
@@ -470,7 +470,7 @@ func (r *Roster) processSubscribed(presence *xml.Presence) error {
 	p := xml.NewPresence(cntJID, usrJID, xml.SubscribedType)
 	p.AppendElements(presence.Elements().All())
 
-	if router.Instance().IsLocalDomain(usrJID.Domain()) {
+	if router.Instance().IsLocalHost(usrJID.Domain()) {
 		usrRi, err := storage.Instance().FetchRosterItem(usrJID.Node(), cntJID.String())
 		if err != nil {
 			return err
@@ -522,7 +522,7 @@ func (r *Roster) processUnsubscribe(presence *xml.Presence) error {
 	p := xml.NewPresence(usrJID, cntJID, xml.UnsubscribeType)
 	p.AppendElements(presence.Elements().All())
 
-	if router.Instance().IsLocalDomain(cntJID.Domain()) {
+	if router.Instance().IsLocalHost(cntJID.Domain()) {
 		cntRi, err := storage.Instance().FetchRosterItem(cntJID.Node(), usrJID.String())
 		if err != nil {
 			return err
@@ -577,7 +577,7 @@ func (r *Roster) processUnsubscribed(presence *xml.Presence) error {
 	p := xml.NewPresence(cntJID, usrJID, xml.UnsubscribedType)
 	p.AppendElements(presence.Elements().All())
 
-	if router.Instance().IsLocalDomain(usrJID.Domain()) {
+	if router.Instance().IsLocalHost(usrJID.Domain()) {
 		usrRi, err := storage.Instance().FetchRosterItem(usrJID.Node(), cntJID.String())
 		if err != nil {
 			return err

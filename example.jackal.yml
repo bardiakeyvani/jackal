@@ -18,13 +18,14 @@ storage:
     database: jackal
     pool_size: 16
 
+hosts:
+  - name: jackal.im
+    tls:
+        privkey_path: "privkey.pem"
+        cert_path: "fullchain.pem"
+
 virtual_hosts:
   - id: default
-
-    domain: localhost
-    tls:
-      privkey_path: ""
-      cert_path: ""
 
     connect_timeout: 5
     max_stanza_size: 32768
@@ -79,14 +80,9 @@ virtual_hosts:
 s2s:
   disabled: false
 
-  max_stanza_size: 131072
   dial_timeout: 15
   dialback_secret: s3cr3tf0rd14lb4ck
-
-  localdomain: jackal.im
-  tls:
-    privkey_path: "privkey.pem"
-    cert_path: "fullchain.pem"
+  max_stanza_size: 131072
 
   transport:
     bind_addr: 0.0.0.0
