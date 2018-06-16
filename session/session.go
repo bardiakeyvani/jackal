@@ -151,7 +151,7 @@ func (s *Session) Open() error {
 		s.mu.RUnlock()
 	}
 	ops.SetAttribute("from", s.jid().Domain())
-	if s.isInitiating && len(s.remoteDomain) > 0 {
+	if s.isInitiating {
 		ops.SetAttribute("to", s.remoteDomain)
 	}
 	ops.SetAttribute("version", "1.0")

@@ -326,6 +326,7 @@ func (s *inStream) handleConnecting(elem xml.XElement) {
 	s.ctx.SetObject(j, jidCtxKey)
 
 	// open stream session
+	s.sess.UpdateJID(j)
 	s.sess.Open()
 
 	features := xml.NewElementName("stream:features")

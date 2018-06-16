@@ -7,6 +7,9 @@ package s2s
 
 import (
 	"sync/atomic"
+	"time"
+
+	"crypto/tls"
 
 	"github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
@@ -26,6 +29,7 @@ type inStream struct {
 	id            string
 	cfg           *inConfig
 	state         uint32
+	connectTm     *time.Timer
 	sess          *session.Session
 	secured       bool
 	authenticated bool
@@ -41,6 +45,9 @@ func newInStream(id string, cfg *inConfig) stream.S2SIn {
 	// start s2s in session
 	s.restartSession()
 
+	if cfg.connectTimeout > 0 {
+		s.connectTm = time.AfterFunc(cfg.connectTimeout, s.connectTimeout)
+	}
 	go s.loop()
 	go s.doRead() // start reading transport...
 	return s
@@ -61,6 +68,10 @@ func (s *inStream) Disconnect(err error) {
 		close(waitCh)
 	}
 	<-waitCh
+}
+
+func (s *inStream) connectTimeout() {
+	s.actorCh <- func() { s.disconnect(streamerror.ErrConnectionTimeout) }
 }
 
 // runs on its own goroutine
@@ -90,7 +101,66 @@ func (s *inStream) doRead() {
 
 func (s *inStream) handleElement(elem xml.XElement) {
 	switch s.getState() {
+	case inConnecting:
+		s.handleConnecting(elem)
+	case inConnected:
+		s.handleConnected(elem)
 	}
+}
+
+func (s *inStream) handleConnecting(elem xml.XElement) {
+	// cancel connection timeout timer
+	if s.connectTm != nil {
+		s.connectTm.Stop()
+		s.connectTm = nil
+	}
+	// assign stream domain
+	domain := elem.To()
+	j, _ := xml.NewJID("", domain, "", true)
+
+	// open stream session
+	s.sess.UpdateJID(j)
+	s.sess.Open()
+
+	features := xml.NewElementName("stream:features")
+	features.SetAttribute("xmlns:stream", streamNamespace)
+	features.SetAttribute("version", "1.0")
+
+	if !s.secured {
+		starttls := xml.NewElementNamespace("starttls", tlsNamespace)
+		starttls.AppendElement(xml.NewElementName("required"))
+		features.AppendElement(starttls)
+		s.setState(inConnected)
+	} else {
+
+	}
+	s.writeElement(features)
+}
+
+func (s *inStream) handleConnected(elem xml.XElement) {
+	switch elem.Name() {
+	case "starttls":
+		if len(elem.Namespace()) > 0 && elem.Namespace() != tlsNamespace {
+			s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
+			return
+		}
+		s.proceedStartTLS()
+
+	default:
+		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
+	}
+}
+
+func (s *inStream) proceedStartTLS() {
+	s.writeElement(xml.NewElementNamespace("proceed", tlsNamespace))
+
+	s.cfg.transport.StartTLS(&tls.Config{
+		Certificates: router.Instance().GetCertificates(),
+	}, false)
+	s.secured = true
+	log.Infof("secured stream... id: %s", s.id)
+
+	s.restartSession()
 }
 
 func (s *inStream) writeElement(elem xml.XElement) {
