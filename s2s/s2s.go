@@ -66,7 +66,7 @@ func NewDialer() (*Dialer, error) {
 	}
 	return &Dialer{
 		dbSecret:       config.DialbackSecret,
-		connectTimeout: config.ConnectTimeout,
+		connectTimeout: config.OutConnectTimeout,
 		keepAlive:      config.Transport.KeepAlive,
 		maxStanzaSize:  config.MaxStanzaSize,
 	}, nil

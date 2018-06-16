@@ -16,7 +16,8 @@ import (
 const (
 	defaultTransportPort      = 5269
 	defaultTransportKeepAlive = time.Duration(120) * time.Second
-	defaultDialTimeout        = time.Duration(10) * time.Second
+	defaultOutConnectTimeout  = time.Duration(15) * time.Second
+	defaultInConnectTimeout   = time.Duration(5) * time.Second
 	defaultMaxStanzaSize      = 131072
 )
 
@@ -58,21 +59,21 @@ type TLSConfig struct {
 }
 
 type Config struct {
-	Disabled       bool
-	ConnectTimeout time.Duration
-	DialbackSecret string
-	MaxStanzaSize  int
-	Transport      TransportConfig
+	Disabled          bool
+	OutConnectTimeout time.Duration
+	InConnectTimeout  time.Duration
+	DialbackSecret    string
+	MaxStanzaSize     int
+	Transport         TransportConfig
 }
 
 type configProxy struct {
-	Disabled       bool            `yaml:"disabled"`
-	ConnectTimeout int             `yaml:"connect_timeout"`
-	DialbackSecret string          `yaml:"dialback_secret"`
-	MaxStanzaSize  int             `yaml:"max_stanza_size"`
-	LocalDomain    string          `yaml:"localdomain"`
-	TLS            TLSConfig       `yaml:"tls"`
-	Transport      TransportConfig `yaml:"transport"`
+	Disabled          bool            `yaml:"disabled"`
+	OutConnectTimeout int             `yaml:"out_connect_timeout"`
+	InConnectTimeout  int             `yaml:"in_connect_timeout"`
+	DialbackSecret    string          `yaml:"dialback_secret"`
+	MaxStanzaSize     int             `yaml:"max_stanza_size"`
+	Transport         TransportConfig `yaml:"transport"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -89,9 +90,13 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if len(c.DialbackSecret) == 0 {
 		return errors.New("s2s.Config: must specify a dialback secret")
 	}
-	c.ConnectTimeout = time.Duration(p.ConnectTimeout) * time.Second
-	if c.ConnectTimeout == 0 {
-		c.ConnectTimeout = defaultDialTimeout
+	c.OutConnectTimeout = time.Duration(p.OutConnectTimeout) * time.Second
+	if c.OutConnectTimeout == 0 {
+		c.OutConnectTimeout = defaultOutConnectTimeout
+	}
+	c.InConnectTimeout = time.Duration(p.InConnectTimeout) * time.Second
+	if c.InConnectTimeout == 0 {
+		c.InConnectTimeout = defaultInConnectTimeout
 	}
 	c.Transport = p.Transport
 	c.MaxStanzaSize = p.MaxStanzaSize

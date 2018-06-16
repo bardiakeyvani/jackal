@@ -80,7 +80,9 @@ virtual_hosts:
 s2s:
   disabled: false
 
-  dial_timeout: 15
+  out_connect_timeout: 15
+  in_connect_timeout: 5
+
   dialback_secret: s3cr3tf0rd14lb4ck
   max_stanza_size: 131072
 

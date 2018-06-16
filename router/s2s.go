@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ortuman/jackal/errors"
+	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xml"
 )
@@ -29,7 +30,9 @@ func newS2SRouter() *s2sRouter {
 func (r *s2sRouter) registerOut(stm stream.S2SOut) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.outStreams[stm.LocalDomain()+":"+stm.RemoteDomain()] = stm
+	domainPair := stm.LocalDomain() + ":" + stm.RemoteDomain()
+	r.outStreams[domainPair] = stm
+	log.Infof("registered s2s out stream... (domain pair: %s)", domainPair)
 	return nil
 }
 
@@ -37,6 +40,16 @@ func (r *s2sRouter) registerIn(stm stream.S2SIn) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.inStreams[stm.ID()] = stm
+	log.Infof("registered s2s in stream... (id: %s)", stm.ID())
+	return nil
+}
+
+func (r *s2sRouter) unregisterOut(stm stream.S2SOut) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	domainPair := stm.LocalDomain() + ":" + stm.RemoteDomain()
+	delete(r.outStreams, domainPair)
+	log.Infof("unregistered s2s out stream... (domain pair: %s)", domainPair)
 	return nil
 }
 
@@ -44,13 +57,7 @@ func (r *s2sRouter) unregisterIn(stm stream.S2SIn) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.inStreams, stm.ID())
-	return nil
-}
-
-func (r *s2sRouter) unregisterOut(stm stream.S2SOut) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.outStreams, stm.LocalDomain()+":"+stm.RemoteDomain())
+	log.Infof("unregistered s2s in stream... (id: %s)", stm.ID())
 	return nil
 }
 

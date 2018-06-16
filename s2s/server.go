@@ -63,7 +63,7 @@ func (s *server) startStream(tr transport.Transport) {
 	cfg := &inConfig{
 		dbSecret:       s.cfg.DialbackSecret,
 		transport:      tr,
-		connectTimeout: s.cfg.ConnectTimeout,
+		connectTimeout: s.cfg.InConnectTimeout,
 		maxStanzaSize:  s.cfg.MaxStanzaSize,
 	}
 	stm := newInStream(s.nextID(), cfg)

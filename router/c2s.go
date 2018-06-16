@@ -35,10 +35,10 @@ func (r *c2sRouter) registerStream(stm stream.C2S) error {
 
 	_, ok := r.streams[stm.ID()]
 	if ok {
-		return fmt.Errorf("stream already registered: %s", stm.ID())
+		return fmt.Errorf("c2s stream already registered: %s", stm.ID())
 	}
 	r.streams[stm.ID()] = stm
-	log.Infof("registered stream... (id: %s)", stm.ID())
+	log.Infof("registered c2s stream... (id: %s)", stm.ID())
 	return nil
 }
 
@@ -48,7 +48,7 @@ func (r *c2sRouter) unregisterStream(stm stream.C2S) error {
 
 	_, ok := r.streams[stm.ID()]
 	if !ok {
-		return fmt.Errorf("stream not found: %s", stm.ID())
+		return fmt.Errorf("c2s stream not found: %s", stm.ID())
 	}
 	if resources := r.bindedStreams[stm.Username()]; resources != nil {
 		res := stm.Resource()
@@ -65,7 +65,7 @@ func (r *c2sRouter) unregisterStream(stm stream.C2S) error {
 		}
 	}
 	delete(r.streams, stm.ID())
-	log.Infof("unregistered stream... (id: %s)", stm.ID())
+	log.Infof("unregistered c2s stream... (id: %s)", stm.ID())
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (r *c2sRouter) bindStream(stm stream.C2S) error {
 	} else {
 		r.bindedStreams[stm.Username()] = []stream.C2S{stm}
 	}
-	log.Infof("binded stream... (%s/%s)", stm.Username(), stm.Resource())
+	log.Infof("binded c2s stream... (%s/%s)", stm.Username(), stm.Resource())
 	return nil
 }
 
