@@ -20,11 +20,10 @@ import (
 )
 
 const (
-	defaultDomain                  = "localhost"
-	defaultTransportConnectTimeout = 5
+	defaultTransportConnectTimeout = time.Duration(5) * time.Second
 	defaultTransportMaxStanzaSize  = 32768
 	defaultTransportPort           = 5222
-	defaultTransportKeepAlive      = 120
+	defaultTransportKeepAlive      = time.Duration(120) * time.Second
 )
 
 // ResourceConflictPolicy represents a resource conflict policy.
@@ -122,7 +121,7 @@ type TransportConfig struct {
 	Type        transport.TransportType
 	BindAddress string
 	Port        int
-	KeepAlive   int
+	KeepAlive   time.Duration
 	URLPath     string
 }
 
@@ -153,13 +152,13 @@ func (t *TransportConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	}
 	t.BindAddress = p.BindAddress
 	t.Port = p.Port
-	t.KeepAlive = p.KeepAlive
 	t.URLPath = p.URLPath
 
 	// assign transport's defaults
 	if t.Port == 0 {
 		t.Port = defaultTransportPort
 	}
+	t.KeepAlive = time.Duration(p.KeepAlive) * time.Second
 	if t.KeepAlive == 0 {
 		t.KeepAlive = defaultTransportKeepAlive
 	}
@@ -175,7 +174,7 @@ type TLSConfig struct {
 // Config represents C2S server configuration.
 type Config struct {
 	ID               string
-	ConnectTimeout   int
+	ConnectTimeout   time.Duration
 	MaxStanzaSize    int
 	ResourceConflict ResourceConflictPolicy
 	Transport        TransportConfig
@@ -184,7 +183,7 @@ type Config struct {
 	Modules          ModulesConfig
 }
 
-type serverConfigProxy struct {
+type configProxy struct {
 	ID               string          `yaml:"id"`
 	Domain           string          `yaml:"domain"`
 	TLS              TLSConfig       `yaml:"tls"`
@@ -198,13 +197,13 @@ type serverConfigProxy struct {
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
-func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	p := serverConfigProxy{}
+func (cfg *Config) configProxy(unmarshal func(interface{}) error) error {
+	p := configProxy{}
 	if err := unmarshal(&p); err != nil {
 		return err
 	}
 	cfg.ID = p.ID
-	cfg.ConnectTimeout = p.ConnectTimeout
+	cfg.ConnectTimeout = time.Duration(p.ConnectTimeout) * time.Second
 	if cfg.ConnectTimeout == 0 {
 		cfg.ConnectTimeout = defaultTransportConnectTimeout
 	}

@@ -115,13 +115,13 @@ func (s *server) startStream(tr transport.Transport) {
 	cfg := &inConfig{
 		transport:        tr,
 		resourceConflict: s.cfg.ResourceConflict,
-		connectTimeout:   time.Duration(s.cfg.ConnectTimeout) * time.Second,
+		connectTimeout:   s.cfg.ConnectTimeout,
 		maxStanzaSize:    s.cfg.MaxStanzaSize,
 		sasl:             s.cfg.SASL,
 		compression:      s.cfg.Compression,
 		modules:          s.cfg.Modules,
 	}
-	stm := newInStream(s.nextID(), cfg)
+	stm := newStream(s.nextID(), cfg)
 	if err := router.Instance().RegisterC2S(stm); err != nil {
 		log.Error(err)
 	}

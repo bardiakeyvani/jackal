@@ -12,6 +12,7 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/session"
+	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xml"
 )
 
@@ -23,7 +24,7 @@ const (
 
 type inStream struct {
 	id            string
-	cfg           *streamConfig
+	cfg           *inConfig
 	state         uint32
 	sess          *session.Session
 	secured       bool
@@ -31,7 +32,7 @@ type inStream struct {
 	actorCh       chan func()
 }
 
-func newInStream(id string, cfg *streamConfig) *inStream {
+func newInStream(id string, cfg *inConfig) stream.S2SIn {
 	s := &inStream{
 		id:      id,
 		cfg:     cfg,

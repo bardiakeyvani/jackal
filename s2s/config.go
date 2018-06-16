@@ -59,7 +59,7 @@ type TLSConfig struct {
 
 type Config struct {
 	Disabled       bool
-	DialTimeout    time.Duration
+	ConnectTimeout time.Duration
 	DialbackSecret string
 	MaxStanzaSize  int
 	Transport      TransportConfig
@@ -67,7 +67,7 @@ type Config struct {
 
 type configProxy struct {
 	Disabled       bool            `yaml:"disabled"`
-	DialTimeout    int             `yaml:"dial_timeout"`
+	ConnectTimeout int             `yaml:"connect_timeout"`
 	DialbackSecret string          `yaml:"dialback_secret"`
 	MaxStanzaSize  int             `yaml:"max_stanza_size"`
 	LocalDomain    string          `yaml:"localdomain"`
@@ -89,9 +89,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if len(c.DialbackSecret) == 0 {
 		return errors.New("s2s.Config: must specify a dialback secret")
 	}
-	c.DialTimeout = time.Duration(p.DialTimeout) * time.Second
-	if c.DialTimeout == 0 {
-		c.DialTimeout = defaultDialTimeout
+	c.ConnectTimeout = time.Duration(p.ConnectTimeout) * time.Second
+	if c.ConnectTimeout == 0 {
+		c.ConnectTimeout = defaultDialTimeout
 	}
 	c.Transport = p.Transport
 	c.MaxStanzaSize = p.MaxStanzaSize
@@ -101,11 +101,21 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type streamConfig struct {
+type outConfig struct {
 	dbSecret      string
 	localDomain   string
 	remoteDomain  string
 	tls           *tls.Config
 	transport     transport.Transport
 	maxStanzaSize int
+}
+
+type inConfig struct {
+	dbSecret       string
+	localDomain    string
+	remoteDomain   string
+	connectTimeout time.Duration
+	tls            *tls.Config
+	transport      transport.Transport
+	maxStanzaSize  int
 }

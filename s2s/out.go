@@ -25,7 +25,7 @@ const (
 )
 
 type outStream struct {
-	cfg           *streamConfig
+	cfg           *outConfig
 	state         uint32
 	sess          *session.Session
 	secured       bool
@@ -33,7 +33,7 @@ type outStream struct {
 	actorCh       chan func()
 }
 
-func newOutStream(cfg *streamConfig) *outStream {
+func newOutStream(cfg *outConfig) *outStream {
 	s := &outStream{
 		cfg:     cfg,
 		actorCh: make(chan func(), streamMailboxSize),

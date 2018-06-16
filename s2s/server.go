@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ortuman/jackal/log"
+	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
 )
 
@@ -59,6 +60,16 @@ func (s *server) listenConn(address string) error {
 }
 
 func (s *server) startStream(tr transport.Transport) {
+	cfg := &inConfig{
+		dbSecret:       s.cfg.DialbackSecret,
+		transport:      tr,
+		connectTimeout: s.cfg.ConnectTimeout,
+		maxStanzaSize:  s.cfg.MaxStanzaSize,
+	}
+	stm := newInStream(s.nextID(), cfg)
+	if err := router.Instance().RegisterS2SIn(stm); err != nil {
+		log.Error(err)
+	}
 }
 
 func (s *server) nextID() string {

@@ -19,11 +19,11 @@ import (
 )
 
 type Dialer struct {
-	dbSecret      string
-	timeout       time.Duration
-	keepAlive     time.Duration
-	maxStanzaSize int
-	dialCnt       uint32
+	dbSecret       string
+	connectTimeout time.Duration
+	keepAlive      time.Duration
+	maxStanzaSize  int
+	dialCnt        uint32
 }
 
 func (d *Dialer) Dial(localDomain, remoteDomain string) (stream.S2SOut, error) {
@@ -35,7 +35,7 @@ func (d *Dialer) Dial(localDomain, remoteDomain string) (stream.S2SOut, error) {
 	} else {
 		target = strings.TrimSuffix(addrs[0].Target, ".")
 	}
-	conn, err := net.DialTimeout("tcp", target+":"+strconv.Itoa(int(addrs[0].Port)), d.timeout)
+	conn, err := net.DialTimeout("tcp", target+":"+strconv.Itoa(int(addrs[0].Port)), d.connectTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (d *Dialer) Dial(localDomain, remoteDomain string) (stream.S2SOut, error) {
 		Certificates: router.Instance().GetCertificates(),
 	}
 	tr := transport.NewSocketTransport(conn, d.keepAlive)
-	cfg := &streamConfig{
+	cfg := &outConfig{
 		dbSecret:      d.dbSecret,
 		tls:           tlsConfig,
 		transport:     tr,

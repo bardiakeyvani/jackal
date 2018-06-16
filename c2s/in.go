@@ -93,7 +93,7 @@ type inStream struct {
 	doneCh         chan<- struct{}
 }
 
-func newInStream(id string, cfg *inConfig) stream.C2S {
+func newStream(id string, cfg *inConfig) stream.C2S {
 	ctx, doneCh := stream.NewContext()
 	s := &inStream{
 		cfg:     cfg,
